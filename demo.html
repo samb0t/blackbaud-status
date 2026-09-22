@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Assignment statuses — test calendar</title>
+<link rel="stylesheet" href="content.css">
+<style>
+body { margin:40px; font:16px system-ui; background:#f4f6f8; color:#182636; }
+main { max-width:850px; } .week { padding:20px; border:1px solid #d4dce5; background:white; margin:10px 0; }
+.fc-event { display:block; background:#9fc5e8; border:1px solid #89b2d9; padding:10px; margin:8px 0; border-radius:4px; text-decoration:none; color:#182636; }
+button { padding:10px; } #opened { min-height:24px; }
+</style>
+<main><h1>Personal assignment statuses</h1><p>Test calendar · Select Start marking in the bottom-right panel.</p>
+<button id="next">Simulate month navigation</button><p id="opened" role="status"></p>
+<div id="calendar">
+<div class="week"><h2>Week one</h2>
+<a class="fc-event" href="#assignment" data-assignment-id="101"><span class="fc-title">Sample Project (Student A)</span></a>
+<a class="fc-event" href="#assignment" data-assignment-id="102"><span class="fc-title">Sample Practice (Student A)</span></a>
+<a class="fc-event" href="#assignment"><span class="fc-title">Sample Reading (Student A)</span></a></div>
+<div class="week"><h2>Week two</h2>
+<a class="fc-event" href="#assignment" data-assignment-id="101"><span class="fc-title">Sample Project (Student A)</span></a>
+<a class="fc-event" href="#assignment" data-assignment-id="103"><span class="fc-title">Sample Practice (Student A)</span></a>
+</div></div></main>
+<script src="demo.js"></script><script src="identity.js"></script><script src="content.js"></script>
+</html>

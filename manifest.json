@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "My School Assignment Statuses",
+  "version": "0.1.0",
+  "description": "Personal status colors for your myschoolapp.com calendar. Saved only in this Chrome profile.",
+  "permissions": ["storage"],
+  "content_scripts": [{
+    "matches": ["https://*.myschoolapp.com/*"],
+    "js": ["identity.js", "content.js"],
+    "css": ["content.css"],
+    "run_at": "document_idle"
+  }]
+}

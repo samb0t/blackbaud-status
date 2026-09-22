@@ -1,0 +1,17 @@
+/* Override event and inner fills, including older FullCalendar markup. */
+[data-bbs-status="progress"] { --bbs-fill: #ffe49a; --bbs-edge: #9e7300; }
+[data-bbs-status="soon"] { --bbs-fill: #ffc1bb; --bbs-edge: #b63126; }
+[data-bbs-status="done"] { --bbs-fill: #bce8c7; --bbs-edge: #287a42; }
+[data-bbs-status="ignore"] { --bbs-fill: #d7dce2; --bbs-edge: #637080; }
+[data-bbs-status], [data-bbs-status] .fc-content,
+[data-bbs-status] .fc-event-inner, [data-bbs-status] .fc-event-main,
+[data-bbs-status] td {
+  background: var(--bbs-fill) !important;
+  color: #182636 !important;
+  border-color: var(--bbs-edge) !important;
+}
+[data-bbs-status] { box-shadow: inset 4px 0 var(--bbs-edge) !important; }
+[data-bbs-status] a, [data-bbs-status] .fc-title,
+[data-bbs-status] .fc-event-title { color: #182636 !important; }
+.bbs-marking { cursor: crosshair !important; }
+.bbs-marking:hover { outline: 2px solid #163d68 !important; outline-offset: 1px; }

@@ -1,13 +1,25 @@
 {
   "manifest_version": 3,
   "name": "My School Assignment Statuses",
-  "version": "0.1.0",
-  "description": "Personal status colors for your myschoolapp.com calendar. Saved only in this Chrome profile.",
-  "permissions": ["storage"],
-  "content_scripts": [{
-    "matches": ["https://*.myschoolapp.com/*"],
-    "js": ["identity.js", "content.js"],
-    "css": ["content.css"],
-    "run_at": "document_idle"
-  }]
+  "version": "0.2.1",
+  "description": "Personal calendar status colors with Chrome Sync across your signed-in browsers.",
+  "permissions": [
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.myschoolapp.com/*"
+      ],
+      "js": [
+        "identity.js",
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArOPlOW1NcYKEGJX8x68u6F/gf3X7xO72kjn1z8rh1ZPucDLSk8VVAaBcauFTW/J8EXOouVssIZMRTI8mkryCYm+90hZfn1K4GtQlfQAAwAT+J7VsS3lSNQ8prSEqprDYMMofVI3FZcP+pMD9xtEmKsEFZK4GMhuHe7Ospirmm0tLgtX6nOzFcw4L5rj9IL6KWJNxwud/VmNefvYPwmnGos8RVWfMZy8jMmy7TYLV+SopOXn1Mww/AaR2A9Mz5rShE8BHGdPZsybHMX2WQwzCfLxHb2FP5sUlcv+PB2QEYnJm22mG46v4/uO6NXpAkncv2DL63MTaLhmUN9OkjKHWfQIDAQAB"
 }

@@ -24,12 +24,31 @@ If the panel doesn't appear, or repeated assignments don't behave correctly, ins
 
 ## Privacy and storage
 
-Only Chrome's `storage` permission is requested. Content scripts run only on HTTPS myschoolapp.com subdomains. The extension makes no network requests and never updates school records. Status keys may contain visible assignment titles, the school origin, and the profile name. They are stored in `chrome.storage.local`, not synced to other devices. Uninstalling the extension removes its saved data. There is no backend, build step, or third-party library.
+Only Chrome's `storage` permission is requested. Statuses use `chrome.storage.sync`: school origins, profile labels, and assignment IDs or fallback titles in keys are sent through Chrome Sync when enabled. No school records are changed. The selected student profile stays local so viewing a different child on one device does not switch another device's calendar.
+
+### Enable cross-device sync
+
+1. Update/reload the existing extension in `chrome://extensions`, then reload calendar tabs.
+2. Enable Chrome Sync, including extension syncing, under the same Google account on each device.
+3. Copy the entire project folder to each device and use **Load unpacked**. The committed manifest public `key` fixes the extension ID to `oieledcehcfhfmghmhimalpjdjjcddab`, regardless of folder location. Keep the key unchanged. No per-device edits are needed.
+4. Select the same student/calendar profile label and school site on each device. Mark an assignment and check it on the other device after Chrome syncs.
+
+Sync is eventual, not instant. Offline changes remain stored in Chrome and sync on reconnection. Different Google accounts do not share data. Chrome resolves concurrent writes to the same assignment; this extension does not provide a collaborative conflict history. Open pages listen for synced changes and repaint automatically.
+
+Chrome limits sync storage to 100 KB, 8 KB per item, and 512 items, with write-rate limits. Each marked assignment consumes one item. Clearing a status removes that item from sync storage. Save failures are shown in the panel, not silently discarded. A successful save means Chrome accepted it locally, not that every device has received it. This API does not expose sync progress.
+
+Reference: https://developer.chrome.com/docs/extensions/reference/api/storage
 
 ## Validation
 
-Run `node --test identity.test.cjs` and `node --check content.js`.
+Run `node --test *.test.cjs` and `node --check content.js`.
 
 For a local interactive fixture, open `demo.html` in a browser. It supplies an in-memory Chrome storage stub, so fixture statuses intentionally reset on reload. Verify marking, clearing, repeated segments, independent profiles, normal clicks, and the simulated month-change button. This does not replace testing on the real site.
 
 Built using Chrome's content script and storage model: https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts
+
+## Fixed extension identity
+
+The manifest public `key` keeps the extension ID at `oieledcehcfhfmghmhimalpjdjjcddab` across devices and folder locations. Keep it unchanged when copying or updating the extension. The public key is safe to commit; no private signing key is included. A future Chrome Web Store release may use a different identity.
+
+Chrome reference: https://developer.chrome.com/docs/extensions/reference/manifest/key

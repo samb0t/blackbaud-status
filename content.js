@@ -18,7 +18,7 @@
     <small id="count" role="status"></small>
     <div id="legend"><span style="background:#ffe49a">In progress</span><span style="background:#ffc1bb">Due soon</span><span style="background:#bce8c7">Done</span><span style="background:#d7dce2">In class / don’t worry</span></div>
     <label for="scope">Student / calendar profile</label><input id="scope" maxlength="100" placeholder="e.g. Student A" />
-    <small>Use a different profile for each child. Saved locally in this Chrome profile. “Due soon” is a manual label.</small>
+    <small>Use a different profile for each child. Statuses sync through Chrome when Chrome Sync is enabled. “Due soon” is a manual label.</small>
     <div id="selection" hidden><p id="title"></p><small id="identity"></small><div id="choices"></div><button id="cancel" style="margin-top:8px">Cancel</button></div>
     <small id="message" role="alert"></small></div>
   </section>`;
@@ -54,11 +54,11 @@
       const key = selected.key;
       pending = true; $('message').textContent = '';
       try {
-        if (value) await chrome.storage.local.set({ [key]: value });
-        else await chrome.storage.local.remove(key);
+        if (value) await chrome.storage.sync.set({ [key]: value });
+        else await chrome.storage.sync.remove(key);
         if (value) records[key] = value; else delete records[key];
         closeSelection(); refresh(); $('toggle').focus();
-      } catch { $('message').textContent = 'Could not save. Reload this page and try again.'; }
+      } catch { $('message').textContent = 'Could not save to Chrome sync storage. A storage or write-rate limit may have been reached. Wait and try again.'; }
       finally { pending = false; }
     });
     $('choices').append(button);
@@ -95,12 +95,20 @@
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && marking) { setMarking(false); $('toggle').focus(); }
   });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'sync') return;
+    for (const [key, change] of Object.entries(changes)) {
+      if (change.newValue === undefined) delete records[key]; else records[key] = change.newValue;
+    }
+    refresh();
+  });
   async function start() {
     try {
-      records = await chrome.storage.local.get(null);
-      scope = typeof records[scopeKey] === 'string' ? records[scopeKey] : '';
+      records = await chrome.storage.sync.get(null);
+      const local = await chrome.storage.local.get(scopeKey);
+      scope = typeof local[scopeKey] === 'string' ? local[scopeKey] : '';
       $('scope').value = scope;
-    } catch { $('message').textContent = 'Storage unavailable. Reload the page before marking.'; $('toggle').disabled = true; }
+    } catch { $('message').textContent = 'Chrome storage unavailable. Reload the page to retry.'; $('toggle').disabled = true; }
     document.documentElement.append(host);
     refresh();
     let timer;
@@ -108,13 +116,6 @@
       if (!mutations.some(m => m.type !== 'attributes' || !['data-bbs-status', 'class'].includes(m.attributeName))) return;
       clearTimeout(timer); timer = setTimeout(refresh, 100);
     }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['href', 'data-event-id', 'data-eventid', 'data-assignment-id', 'data-assignmentid'] });
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== 'local') return;
-      for (const [key, change] of Object.entries(changes)) {
-        if (change.newValue === undefined) delete records[key]; else records[key] = change.newValue;
-      }
-      refresh();
-    });
   }
   start();
 })();

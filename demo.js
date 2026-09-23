@@ -1,14 +1,15 @@
 /* Local fixture only. Not loaded by the extension manifest. */
 const saved = {}, listeners = [];
 globalThis.chrome = { storage: {
-  local: {
+  local: { get: async () => ({}), set: async () => {} },
+  sync: {
     get: async () => ({ ...saved }),
     set: async values => {
       const changes = {};
       for (const [key, value] of Object.entries(values)) { changes[key] = { newValue: value }; saved[key] = value; }
-      listeners.forEach(fn => fn(changes, 'local'));
+      listeners.forEach(fn => fn(changes, 'sync'));
     },
-    remove: async key => { delete saved[key]; listeners.forEach(fn => fn({ [key]: {} }, 'local')); }
+    remove: async key => { delete saved[key]; listeners.forEach(fn => fn({ [key]: {} }, 'sync')); }
   },
   onChanged: { addListener: fn => listeners.push(fn) }
 } };

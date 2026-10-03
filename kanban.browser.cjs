@@ -25,7 +25,7 @@ const { join } = require('node:path');
     const page = await browser.newPage({ viewport: { width: 1600, height: 1400 } });
     await page.clock.setFixedTime(new Date(2026, 9, 2, 12));
     const errors = []; page.on('pageerror', error => errors.push(error.message));
-    await page.goto(`http://127.0.0.1:${server.address().port}/demo.html`);
+    await page.goto(`http://127.0.0.1:${server.address().port}/demo.html#calendar`);
     const board = page.locator('#bbs-kanban');
     const panel = page.locator('#bbs-personal-status');
     const column = status => board.locator(`.column[data-status="${status}"]`);
@@ -34,13 +34,25 @@ const { join } = require('node:path');
       const root = document.querySelector('#bbs-kanban')?.shadowRoot;
       return root && !root.querySelector('select:disabled') && root.querySelector('#message').textContent !== 'Saving…';
     });
-    await page.locator('.bbs-kanban-tab').click();
+    await panel.locator('#collapse').click();
+    assert.equal(await panel.locator('#body').isVisible(), false);
+    for (const id of ['theme', 'board']) {
+      const button = panel.locator('#' + id);
+      assert.equal(await button.isVisible(), true);
+      const bounds = await button.boundingBox(), collapseBounds = await panel.locator('#collapse').boundingBox();
+      assert.ok(bounds.width <= 32 && Math.abs(bounds.y - collapseBounds.y) < 1);
+    }
+    await panel.locator('#collapse').click();
+    await panel.locator('#board').click();
+    assert.equal(await panel.locator('#board').getAttribute('aria-label'), 'Back to calendar');
+    assert.deepEqual(await board.locator('.card time').evaluateAll(nodes => nodes.map(node => node.dateTime)), ['2026-10-02', '2026-10-06', '2026-10-07']);
     assert.equal(await page.locator('.fc-month-button').evaluate(element => element.nextElementSibling.matches('.bbs-kanban-tab')), true);
     assert.equal(await page.locator('.bbs-kanban-tab').getAttribute('aria-label'), 'Kanban board');
     assert.equal((await page.locator('.bbs-kanban-tab').textContent()).trim(), '');
     const monthBox = await page.locator('.fc-month-button').boundingBox(), tabBox = await page.locator('.bbs-kanban-tab').boundingBox();
     assert.ok(tabBox.x >= monthBox.x + monthBox.width - 1 && tabBox.y < monthBox.y + monthBox.height && tabBox.width <= 34);
-    assert.equal(await board.locator('.column').count(), 5);
+    assert.equal(await board.locator('.column').count(), 4);
+    assert.equal(await page.locator('.bbs-due-flag').count(), 3);
     assert.equal(await board.locator('.card').count(), 4);
     assert.equal(await page.locator('.fc-view-container').isVisible(), false);
 
@@ -57,6 +69,7 @@ const { join } = require('node:path');
     await page.clock.setFixedTime(new Date(2026, 9, 5, 12));
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
     assert.equal(await reading.locator('.due-flag').count(), 1);
+    assert.equal(await page.locator('.bbs-due-flag').count(), 3);
     await page.clock.setFixedTime(new Date(2026, 9, 2, 12));
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
     await project.locator('select').selectOption('progress'); await settled();
@@ -64,10 +77,12 @@ const { join } = require('node:path');
     assert.equal(await project.locator('.due-flag').count(), 1);
     assert.equal(await column('progress').locator('.card').count(), 1);
     assert.equal(await page.locator('[data-assignment-id="101"][data-bbs-status="progress"]').count(), 2);
+    assert.equal(await page.locator('[data-assignment-id="101"] .bbs-due-flag path').first().evaluate(node => getComputedStyle(node).fill), 'rgb(198, 40, 40)');
 
     // The menu and actual browser drag/drop both update the calendar's status.
     await project.locator('.drag-handle').dragTo(column('done').locator('h3')); await settled();
     assert.equal(await column('done').locator('.card').count(), 1);
+    assert.equal(await page.locator('[data-assignment-id="101"] .bbs-due-flag path').first().evaluate(node => getComputedStyle(node).fill), 'rgb(198, 40, 40)');
     await project.locator('select').selectOption(''); await settled();
     assert.equal(await page.locator('[data-assignment-id="101"][data-bbs-status]').count(), 0);
     await project.getByRole('button', { name: /Move .* up in/ }).click(); await settled();
@@ -78,6 +93,20 @@ const { join } = require('node:path');
 
     await panel.locator('#theme').click();
     assert.equal(await board.getAttribute('data-dark'), '');
+    assert.equal(await page.locator('nav').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(255, 251, 220)');
+    assert.equal(await page.locator('.site-banner').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(117, 197, 223)');
+    assert.equal(await page.locator('.site-banner span').evaluate(node => getComputedStyle(node).color), 'rgb(24, 38, 54)');
+    assert.equal(await page.locator('nav .active').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(217, 242, 250)');
+    assert.equal(await page.locator('nav .active span').evaluate(node => getComputedStyle(node).color), 'rgb(24, 38, 54)');
+    assert.equal(await page.locator('.fc-toolbar').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(34, 48, 68)');
+    await page.evaluate(() => { location.hash = 'resources'; });
+    await page.waitForFunction(() => !document.documentElement.hasAttribute('data-bbs-dark'));
+    assert.equal(await board.getAttribute('data-dark'), null);
+    assert.equal(await page.locator('.site-banner span').evaluate(node => getComputedStyle(node).color), 'rgb(181, 196, 213)');
+    assert.equal(await page.evaluate(async () => (await chrome.storage.sync.get(null))['bbs-setting:dark-mode']), true);
+    await page.evaluate(() => { location.hash = 'calendar/week'; });
+    await page.waitForFunction(() => document.documentElement.hasAttribute('data-bbs-dark'));
+    assert.equal(await page.locator('.bbs-due-flag path').first().evaluate(node => getComputedStyle(node).fill), 'rgb(255, 130, 123)');
     seed = await page.evaluate(() => chrome.storage.sync.get(null));
     await page.reload(); await page.locator('.bbs-kanban-tab').click();
     assert.deepEqual(await titles(''), ordered);
@@ -86,28 +115,30 @@ const { join } = require('node:path');
     // Simulate a remote sync update and a write failure without losing saved data.
     const key = await project.getAttribute('data-key');
     await page.evaluate(key => chrome.storage.sync.set({ [key]: 'soon' }), key);
-    assert.equal(await column('soon').locator('.card').count(), 1);
+    assert.equal(await column('soon').count(), 0);
+    assert.equal(await column('').locator('.card').count(), 4);
+    await page.evaluate(key => chrome.storage.sync.set({ [key]: 'progress' }), key);
     await page.evaluate(() => { window.originalSet = chrome.storage.sync.set; chrome.storage.sync.set = async () => { throw new Error('quota'); }; });
     await project.locator('select').selectOption('done'); await settled();
-    assert.equal(await column('soon').locator('.card').count(), 1);
+    assert.equal(await column('progress').locator('.card').count(), 1);
     assert.match(await board.locator('#message').textContent(), /Could not save/);
     await page.evaluate(() => { chrome.storage.sync.set = window.originalSet; });
     await page.evaluate(() => { window.originalRemove = chrome.storage.sync.remove; chrome.storage.sync.remove = async () => { throw new Error('quota'); }; });
     await project.locator('select').selectOption(''); await settled();
-    assert.equal(await column('soon').locator('.card').count(), 1);
+    assert.equal(await column('progress').locator('.card').count(), 1);
     assert.match(await board.locator('#message').textContent(), /Could not save/);
     await page.evaluate(() => { chrome.storage.sync.remove = window.originalRemove; });
 
     await panel.locator('#scope').fill('Student B'); await panel.locator('#scope').dispatchEvent('change');
-    assert.equal(await column('soon').locator('.card').count(), 0);
+    assert.equal(await column('progress').locator('.card').count(), 0);
     assert.equal(await column('').locator('.card').count(), 4);
     await panel.locator('#scope').fill(''); await panel.locator('#scope').dispatchEvent('change');
-    assert.equal(await column('soon').locator('.card').count(), 1);
+    assert.equal(await column('progress').locator('.card').count(), 1);
 
     // Board follows range replacements, including an empty range, without retaining cards.
     await page.locator('#next').click();
     await page.waitForFunction(() => document.querySelector('#bbs-kanban').shadowRoot.querySelectorAll('.card').length === 3);
-    await page.evaluate(() => document.querySelector('.fc-view-container').replaceChildren());
+    await page.evaluate(() => { const grid = document.createElement('div'); grid.className = 'fc-month-view'; document.querySelector('.fc-view-container').replaceChildren(grid); });
     await board.locator('#empty').waitFor({ state: 'visible' });
     assert.equal(await board.locator('.card').count(), 0);
     await page.getByRole('button', { name: 'Month', exact: true }).click();
@@ -115,14 +146,24 @@ const { join } = require('node:path');
     assert.notEqual(await page.locator('.fc-view-container').evaluate(element => getComputedStyle(element).display), 'none');
     assert.equal(await page.locator('.bbs-kanban-tab').count(), 1);
 
-    // Unrecognized markup still has a working panel entry and overlay fallback.
+    // List views, including empty lists, cannot open Kanban through either entry.
+    await page.reload();
+    await page.evaluate(() => document.querySelector('.fc-month-view').className = 'week fc-list-view');
+    await page.locator('.bbs-kanban-tab').waitFor({ state: 'detached' });
+    assert.equal(await panel.locator('#board').isVisible(), false);
+    await panel.locator('#board').evaluate(button => button.click());
+    assert.equal(await board.isVisible(), false);
+    await page.evaluate(() => document.querySelector('.fc-list-view').className = 'week fc-month-view');
+    await page.locator('.bbs-kanban-tab').waitFor();
+    await page.locator('.bbs-kanban-tab').click();
+    await page.evaluate(() => document.querySelector('.fc-month-view').className = 'week fc-list-view');
+    await board.waitFor({ state: 'hidden' });
+    assert.equal(await page.locator('.fc-view-container').isVisible(), true);
     await page.reload();
     await page.evaluate(() => { document.querySelector('.fc-toolbar').remove(); document.querySelector('#calendar').id = 'unknown-calendar'; });
     await page.locator('.bbs-kanban-tab').waitFor({ state: 'detached' });
-    await panel.locator('#board').click();
-    assert.equal(await board.getAttribute('data-overlay'), '');
-    assert.equal(await board.locator('.card').count(), 4);
-    await board.locator('#back').click();
+    await panel.locator('#board').waitFor({ state: 'hidden' });
+    assert.equal(await panel.locator('#board').isVisible(), false);
     assert.equal(await page.locator('.fc-view-container').isVisible(), true);
 
     // A modern FullCalendar container can be replaced while the board is open.
@@ -179,6 +220,7 @@ const { join } = require('node:path');
     await page.evaluate(() => document.querySelectorAll('[data-assignment-id="101"]').forEach(event => event.setAttribute('data-due-date', '2026-10-09')));
     await project.locator('time[datetime="2026-10-09"]').waitFor();
     assert.equal(await project.locator('.due-flag').count(), 0);
+    assert.equal(await page.locator('[data-assignment-id="101"] .bbs-due-flag').count(), 0);
     // Blackbaud renders descriptions in a separate Bootstrap popup, not the event.
     const description = 'Your informative zine and 150-200 word summary for your Meso/Indus research topic is due on Tues. Oct. 6th. We will be presenting them in class on that day.';
     await page.evaluate(description => {

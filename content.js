@@ -2,7 +2,7 @@
   'use strict';
   if (document.getElementById('bbs-personal-status')) return;
   const selector = '.fc-event, .fc-list-event, .fc-list-item';
-  const statuses = { progress: ['In progress', '#ffe49a'], soon: ['Due soon', '#ffc1bb'], done: ['Done', '#bce8c7'], ignore: ['In class / don’t worry', '#d7dce2'] };
+  const statuses = { progress: ['In progress', '#ffe49a'], done: ['Done', '#bce8c7'], ignore: ['In class / don’t worry', '#d7dce2'] };
   const host = document.createElement('div');
   host.id = 'bbs-personal-status';
   const shadow = host.attachShadow({ mode: 'open' });
@@ -13,7 +13,10 @@
     header { display: flex; align-items: center; justify-content: space-between; gap: 12px; } strong { font-size: 16px; } button, input { font: inherit; } button { cursor: pointer; border: 1px solid #b9c7d4; border-radius: 7px; padding: 8px 10px; background: #f5f8fb; color: #182636; } button:hover { filter: brightness(.96); } button:focus-visible, input:focus-visible { outline: 3px solid #276ac3; outline-offset: 2px; }
     #toggle { width: 100%; margin-top: 12px; } #toggle[aria-pressed=true] { background: #163d68; color: white; } p { margin: 10px 0; } small { color: #536479; display: block; margin-top: 8px; } label { display: block; margin-top: 12px; } input { width: 100%; padding: 7px; border: 1px solid #b9c7d4; border-radius: 6px; } #choices { display: grid; gap: 6px; } #selection { border-top: 1px solid #dce3e9; margin-top: 12px; padding-top: 12px; } #title { overflow-wrap: anywhere; font-weight: 600; } #message { color: #9b3028; } [hidden] { display: none !important; } #legend { font-size: 12px; } #legend span { display: inline-block; padding: 2px 5px; border-radius: 4px; margin: 3px 2px 0 0; }
     :host { color-scheme: light; }
-    #theme, #board { width: 100%; margin-top: 12px; }
+    .header-actions { display: flex; gap: 5px; flex-shrink: 0; }
+    .header-actions button { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 5px; }
+    .header-actions svg { width: 18px; height: 18px; fill: currentColor; }
+    #theme[aria-pressed=true], #board[aria-pressed=true] { background: #163d68; color: white; }
     button:disabled { cursor: wait; opacity: .65; }
     input { background: white; color: #182636; }
     #legend span { color: #182636; }
@@ -25,12 +28,16 @@
     :host([data-theme="dark"]) #message { color: #ffaaa2; }
     :host([data-theme="dark"]) button:focus-visible, :host([data-theme="dark"]) input:focus-visible { outline-color: #8bbcff; }
   </style><section aria-label="Personal assignment statuses">
-    <header><strong>My statuses</strong><button id="collapse" aria-expanded="true" aria-label="Collapse status panel">−</button></header>
-    <div id="body"><button id="theme" aria-pressed="false" disabled>Dark mode</button><button id="board" aria-pressed="false">Open Kanban</button><button id="toggle" aria-pressed="false">Start marking</button>
+    <header><strong>My statuses</strong><div class="header-actions">
+      <button id="theme" aria-pressed="false" aria-label="Dark mode" title="Dark mode" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14A9 9 0 0 1 10 3.5 9 9 0 1 0 20.5 14z"/></svg></button>
+      <button id="board" aria-pressed="false" aria-label="Open Kanban" title="Open Kanban"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="4" height="16" rx="1"/><rect x="10" y="4" width="4" height="10" rx="1"/><rect x="17" y="4" width="4" height="13" rx="1"/></svg></button>
+      <button id="collapse" aria-expanded="true" aria-label="Collapse status panel" title="Collapse status panel">−</button>
+    </div></header>
+    <div id="body"><button id="toggle" aria-pressed="false">Start marking</button>
     <small id="count" role="status"></small>
-    <div id="legend"><span style="background:#ffe49a">In progress</span><span style="background:#ffc1bb">Due soon</span><span style="background:#bce8c7">Done</span><span style="background:#d7dce2">In class / don’t worry</span></div>
+    <div id="legend"><span style="background:#ffe49a">In progress</span><span style="background:#bce8c7">Done</span><span style="background:#d7dce2">In class / don’t worry</span></div>
     <label for="scope">Student / calendar profile</label><input id="scope" maxlength="100" placeholder="e.g. Student A" />
-    <small>Use a different profile for each child. Statuses sync through Chrome when Chrome Sync is enabled. “Due soon” is a manual label.</small>
+    <small>Use a different profile for each child. Statuses sync through Chrome when Chrome Sync is enabled. Red flags mark items due today or within 2 school days.</small>
     <div id="selection" hidden><p id="title"></p><small id="identity"></small><div id="choices"></div><button id="cancel" style="margin-top:8px">Cancel</button></div>
     <small id="message" role="alert"></small></div>
   </section>`;
@@ -57,21 +64,29 @@
     },
     onOpenChange(open) {
       $('board').setAttribute('aria-pressed', String(open));
-      $('board').textContent = open ? 'Back to calendar' : 'Open Kanban';
+      $('board').title = open ? 'Back to calendar' : 'Open Kanban';
+      $('board').setAttribute('aria-label', $('board').title);
+      $('board').innerHTML = open
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h2v3h6V2h2v3h4v17H3V5h4V2zm-2 9v9h14v-9H5z"/></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="4" height="16" rx="1"/><rect x="10" y="4" width="4" height="10" rx="1"/><rect x="17" y="4" width="4" height="13" rx="1"/></svg>';
       $('toggle').hidden = open;
       if (open) setMarking(false);
     }
   });
   function applyTheme() {
-    const dark = records[themeKey] === true;
+    const calendarPage = /^#calendar(?:$|[/?&])/i.test(location.hash);
+    const dark = calendarPage && records[themeKey] === true;
     host.setAttribute('data-theme', dark ? 'dark' : 'light');
     document.documentElement.toggleAttribute('data-bbs-dark', dark);
     kanban.applyTheme(dark);
     $('theme').setAttribute('aria-pressed', String(dark));
   }
+  window.addEventListener('hashchange', applyTheme);
+  window.addEventListener('popstate', applyTheme);
   const identify = event => SchoolStatusIdentity.identify(event, location.origin, scope);
   function closeSelection() { selected = null; $('selection').hidden = true; }
   function refresh() {
+    applyTheme();
     const events = [...document.querySelectorAll(selector)];
     host.hidden = events.length === 0 && !document.querySelector('.fc, #calendar') && !kanban.isOpen;
     $('count').textContent = `${events.length} calendar items found. ${marking ? 'Click an item to set its status. Esc stops marking.' : 'Normal calendar clicks are enabled.'}`;
@@ -84,6 +99,22 @@
       event.classList.toggle('bbs-marking', marking);
     }
     kanban.update(events);
+    $('board').hidden = !kanban.isAvailable;
+    for (const item of SchoolStatusKanbanModel.cards(events, identify, records)) {
+      const flagged = SchoolStatusCalendarDates.isDueSoon(SchoolStatusCalendarDates.dueDate(item.events));
+      for (const event of item.events) {
+        const flag = event.querySelector('.bbs-due-flag');
+        if (!flagged) {
+          flag?.parentElement.classList.remove('bbs-flagged-title');
+          flag?.remove();
+        }
+        else if (!flag) {
+          const target = event.querySelector('.fc-title, .fc-event-title, .fc-list-event-title, .fc-list-item-title') || event.querySelector('td:last-child') || event;
+          target.classList.add('bbs-flagged-title');
+          target.append(SchoolStatusCalendarDates.createFlag('bbs-due-flag'));
+        }
+      }
+    }
   }
   function setMarking(value) {
     marking = value;
@@ -128,6 +159,7 @@
     $('collapse').textContent = collapsed ? '+' : '−';
     $('collapse').setAttribute('aria-expanded', String(!collapsed));
     $('collapse').setAttribute('aria-label', collapsed ? 'Expand status panel' : 'Collapse status panel');
+    $('collapse').title = $('collapse').getAttribute('aria-label');
     if (collapsed) setMarking(false);
   });
   $('scope').addEventListener('change', async () => {
@@ -169,11 +201,19 @@
     } catch { $('message').textContent = 'Chrome storage unavailable. Reload the page to retry.'; $('toggle').disabled = true; }
     document.documentElement.append(host);
     refresh();
+    let renderedDay = SchoolStatusCalendarDates.today();
+    const refreshDay = () => {
+      const day = SchoolStatusCalendarDates.today();
+      if (day !== renderedDay) { renderedDay = day; refresh(); }
+    };
+    setInterval(refreshDay, 60000);
+    window.addEventListener('focus', refreshDay);
+    document.addEventListener('visibilitychange', refreshDay);
     let timer;
     new MutationObserver(mutations => {
-      if (!mutations.some(m => m.type !== 'attributes' || !['data-bbs-status', 'class'].includes(m.attributeName))) return;
+      if (!mutations.some(m => m.type !== 'attributes' || m.attributeName !== 'class' || m.oldValue?.split(/\s+/).filter(value => value !== 'bbs-marking').join(' ') !== [...m.target.classList].filter(value => value !== 'bbs-marking').join(' '))) return;
       clearTimeout(timer); timer = setTimeout(refresh, 100);
-    }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['href', 'aria-describedby', 'data-event-id', 'data-eventid', 'data-assignment-id', 'data-assignmentid', 'data-summary', 'data-description', ...SchoolStatusCalendarDates.attributes] });
+    }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'hidden', 'href', 'aria-describedby', 'data-event-id', 'data-eventid', 'data-assignment-id', 'data-assignmentid', 'data-summary', 'data-description', ...SchoolStatusCalendarDates.attributes] });
   }
   start();
 })();

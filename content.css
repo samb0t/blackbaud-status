@@ -3,39 +3,63 @@
 .bbs-kanban-tab svg { display: block; width: 18px; height: 18px; fill: currentColor; pointer-events: none; }
 .bbs-kanban-tab[aria-pressed="true"] { background: #24517d !important; color: white !important; }
 
-/* Page-wide theme. Attribute scoping also covers content added during navigation. */
+/* Applied only on #calendar routes; new calendar content inherits the theme. */
 html[data-bbs-dark] { color-scheme: dark; background: #111923 !important; }
-[data-bbs-dark] :where(body, body *) {
+/* Leave site chrome and its active/hover backgrounds in the native theme. */
+@scope (html[data-bbs-dark]) to (header, nav, [role="banner"], [role="navigation"], .navbar, .navbar-inner, #site-header, #site-nav) {
+:scope :where(body, body *) {
   color: #edf2f7 !important;
-  background-color: transparent !important;
   border-color: #46576b !important;
   text-shadow: none !important;
 }
-[data-bbs-dark] :where(body) { background: #111923 !important; }
-[data-bbs-dark] :where(header, nav, aside, main, footer, .navbar, .panel, .panel-heading, .panel-body, .well, .card, .modal-content, .modal-header, .modal-body, .modal-footer, .dropdown-menu, .popover, .popover-content, .tooltip-inner, #calendar, .fc, .week) {
+/* @scope protects navigation descendants, but NOT their painted ancestors.
+   Preserve those wrappers too, regardless of the school's wrapper class names. */
+:scope :where(body, body *):not(:where(:has(header, nav, [role="banner"], [role="navigation"], .navbar, .navbar-inner, #site-header, #site-nav))) {
+  background-color: transparent !important;
+}
+:scope :where(body) { background: #111923 !important; }
+:scope :where(aside, main, footer, .panel, .panel-heading, .panel-body, .well, .card, .modal-content, .modal-header, .modal-body, .modal-footer, .dropdown-menu, .popover, .popover-content, .tooltip-inner, #calendar, .fc, .week):not(:where(:has(header, nav, [role="banner"], [role="navigation"], .navbar, .navbar-inner, #site-header, #site-nav))) {
   background: #18222f !important;
 }
-[data-bbs-dark] :where(a, a *) { color: #9bc7ff !important; }
-[data-bbs-dark] :where(button, input, select, textarea, option, .btn, .fc-button) {
+:scope :where(a, a *) { color: #9bc7ff !important; }
+:scope :where(button, input, select, textarea, option, .btn, .fc-button) {
   background: #273649 !important;
   color: #edf2f7 !important;
   box-shadow: none !important;
 }
-[data-bbs-dark] :where(button:hover, .btn:hover, .fc-button:hover, .dropdown-menu > li > a:hover, .fc-list-event:hover td, .fc-list-item:hover td) { background: #34485f !important; }
-[data-bbs-dark] :where(.active > a, .btn.active, .fc-state-active, .fc-button-active, [aria-pressed="true"]) { background: #24517d !important; }
-[data-bbs-dark] :where(input::placeholder, textarea::placeholder) { color: #b5c4d5 !important; opacity: 1; }
-[data-bbs-dark] :where(:focus-visible) { outline: 2px solid #8bbcff !important; outline-offset: 2px; }
-[data-bbs-dark] :where(.fc-col-header-cell, .fc-day-header, .fc-list-heading td, .fc-list-day-cushion, .fc-scrollgrid-section-header, .fc-toolbar) { background: #223044 !important; }
-[data-bbs-dark] :where(.fc-today, .fc-day-today) { background: #243b50 !important; }
-[data-bbs-dark] :where(.fc-event, .fc-list-event, .fc-list-item) { background: #294560 !important; color: #edf2f7 !important; }
-[data-bbs-dark] :where(.fc-event *, .fc-list-event *, .fc-list-item *) { color: #edf2f7 !important; }
-[data-bbs-dark] :where(.fc-highlight) { background: #416d96 !important; }
-[data-bbs-dark] :where(.fc-nonbusiness, .fc-non-business) { background: #0e1621 !important; }
-[data-bbs-dark] :where(.bbs-marking:hover) { outline-color: #8bbcff !important; }
+:scope :where(button:hover, .btn:hover, .fc-button:hover, .dropdown-menu > li > a:hover, .fc-list-event:hover td, .fc-list-item:hover td) { background: #34485f !important; }
+:scope :where(.active > a, .btn.active, .fc-state-active, .fc-button-active, [aria-pressed="true"]) { background: #24517d !important; }
+:scope :where(input::placeholder, textarea::placeholder) { color: #b5c4d5 !important; opacity: 1; }
+:scope :where(:focus-visible) { outline: 2px solid #8bbcff !important; outline-offset: 2px; }
+:scope :where(.fc-col-header-cell, .fc-day-header, .fc-list-heading td, .fc-list-day-cushion, .fc-scrollgrid-section-header, .fc-toolbar) { background: #223044 !important; }
+:scope :where(.fc-today, .fc-day-today) { background: #243b50 !important; }
+:scope :where(.fc-event, .fc-list-event, .fc-list-item) { background: #294560 !important; color: #edf2f7 !important; }
+:scope :where(.fc-event *, .fc-list-event *, .fc-list-item *) { color: #edf2f7 !important; }
+:scope :where(.fc-highlight) { background: #416d96 !important; }
+:scope :where(.fc-nonbusiness, .fc-non-business) { background: #0e1621 !important; }
+:scope :where(.bbs-marking:hover) { outline-color: #8bbcff !important; }
+}
+
+/* Native blue/yellow navigation needs dark text, including nested active labels. */
+html[data-bbs-dark] :is(header, nav, [role="banner"], [role="navigation"], .navbar, .navbar-inner, #site-header, #site-nav) {
+  color-scheme: light;
+  color: #182636 !important;
+}
+html[data-bbs-dark] :is(header, nav, [role="banner"], [role="navigation"], .navbar, .navbar-inner, #site-header, #site-nav) :is(a, button, span, i, small, strong) {
+  color: #182636 !important;
+  text-shadow: none !important;
+}
+html[data-bbs-dark] :is(header, nav, [role="banner"], [role="navigation"], .navbar, .navbar-inner, #site-header, #site-nav) .dropdown-menu {
+  background: #fff !important;
+  color: #182636 !important;
+}
+html[data-bbs-dark] :is(header, nav, [role="banner"], [role="navigation"], .navbar, .navbar-inner, #site-header, #site-nav) .badge {
+  background: #e5f3fa !important;
+  color: #182636 !important;
+}
 
 /* Override event and inner fills, including older FullCalendar markup. */
 [data-bbs-status="progress"] { --bbs-fill: #ffe49a; --bbs-edge: #9e7300; }
-[data-bbs-status="soon"] { --bbs-fill: #ffc1bb; --bbs-edge: #b63126; }
 [data-bbs-status="done"] { --bbs-fill: #bce8c7; --bbs-edge: #287a42; }
 [data-bbs-status="ignore"] { --bbs-fill: #d7dce2; --bbs-edge: #637080; }
 [data-bbs-status], [data-bbs-status] .fc-content,
@@ -51,3 +75,10 @@ html[data-bbs-dark] { color-scheme: dark; background: #111923 !important; }
 [data-bbs-status] * { color: #182636 !important; }
 .bbs-marking { cursor: crosshair !important; }
 .bbs-marking:hover { outline: 2px solid #163d68 !important; outline-offset: 1px; }
+.bbs-flagged-title { position: relative !important; padding-right: 19px !important; }
+.bbs-flagged-title > .bbs-due-flag { position: absolute !important; right: 1px !important; top: 50% !important; transform: translateY(-50%); display: block !important; width: 16px !important; height: 16px !important; margin: 0 !important; line-height: 1 !important; pointer-events: none; }
+.bbs-flagged-title > .bbs-due-flag, .bbs-flagged-title > .bbs-due-flag svg { color: #c62828 !important; }
+.bbs-flagged-title > .bbs-due-flag svg { display: block !important; width: 16px !important; height: 16px !important; fill: currentColor; }
+.bbs-flagged-title > .bbs-due-flag svg path { color: #c62828 !important; fill: #c62828 !important; }
+[data-bbs-dark] .bbs-flagged-title > .bbs-due-flag, [data-bbs-dark] .bbs-flagged-title > .bbs-due-flag svg { color: #ff827b !important; }
+[data-bbs-dark] .bbs-flagged-title > .bbs-due-flag svg path { color: #ff827b !important; fill: #ff827b !important; }

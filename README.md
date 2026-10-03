@@ -9,25 +9,29 @@ A dependency-free Chrome Manifest V3 extension for personal calendar colors, dar
 3. Click **Load unpacked** and select this `blackbaud-status` folder.
 4. Reload your Blackbaud calendar page.
 5. In the bottom-right **My statuses** panel, enter a student/profile name, then click **Start marking**.
-6. Click a calendar item and choose **In progress** (yellow), **Due soon** (red), **Done** (green), **In class / don’t worry** (grey), or **Clear personal status**.
+6. Click a calendar item and choose **In progress** (yellow), **Done** (green), **In class / don’t worry** (grey), or **Clear personal status**.
 7. Click **Finish marking** or press Escape to restore ordinary assignment clicks. Collapsing the panel also stops marking.
 
-Colors persist across reloads and month changes. The Due soon status is manually assigned; the Kanban board's date-based red flag is automatic. Switching the profile changes the set of personal statuses. Use distinct profile names for different children, especially if the site doesn't include a child name in event titles.
+Colors persist across reloads and month changes. Automatic date-based red flags appear on calendar events and Kanban cards. The former manual Due soon status is no longer used; previously labeled items appear without a personal status (To Do in Kanban). Switching the profile changes the set of personal statuses. Use distinct profile names for different children, especially if the site doesn't include a child name in event titles.
 
-Click **Dark mode** in the **My statuses** panel to toggle a dark appearance for the entire calendar page, including navigation, calendar cells, controls, and the status panel. Light mode is the default. The preference is saved alongside statuses in Chrome Sync, restored on reload, and applied to other open calendar tabs when it changes. It is shared across schools and student profiles. Status colors stay recognizable in both themes. Turning dark mode off restores the site's original appearance, and newly loaded calendar content automatically follows the selected theme.
+Click the **Dark mode** moon icon beside the minimize button in the **My statuses** header to toggle a dark appearance for the entire calendar page, including navigation, calendar cells, controls, and the status panel. The adjacent Kanban icon switches to a calendar icon while the board is open. Both controls have tooltips and accessible labels and remain available when the panel is minimized. Light mode is the default. The preference is saved alongside statuses in Chrome Sync, restored on reload, and applied to other open calendar tabs when it changes. It is shared across schools and student profiles. Status colors stay recognizable in both themes. Turning dark mode off restores the site's original appearance, and newly loaded calendar content automatically follows the selected theme.
+
+Dark mode applies only on the `#calendar` route and its subroutes. Navigating to Resources or another page restores the site's normal theme; returning to Calendar reapplies your saved preference. The top site bars retain their native blue/yellow backgrounds and active-tab styling, with dark text for readable navigation labels and user information. Navigation dropdowns use a light background with dark text.
+
+The theme preserves background colors on wrappers around the site navigation as well as on the navigation itself. Notification badges use a light fill so their dark text remains readable.
 
 ## Kanban board
 
-1. Select the calendar range you want to work with and your student/profile name.
+1. Switch the calendar to **Grid** view, then select the range you want to work with and your student/profile name.
 2. Click the small **Kanban board icon** immediately to the right of **Month**, or **Open Kanban** in **My statuses**. The icon has a tooltip and an accessible label.
-3. Organize assignments into **To Do**, **In progress**, **Due soon**, **Done**, and **In class / don’t worry**.
+3. Organize assignments into **To Do**, **In progress**, **Done**, and **In class / don’t worry**.
 4. Drag a card using its **⠿ grip icon**. Drop it on a column's heading or empty space to append it, or over another card to insert above it.
 5. For keyboard or touch use, choose a column with **Move to**, and reorder with the small **↑ / ↓** buttons (with tooltips and accessible labels).
 6. Click **Back to calendar**, press Escape while focused in the board, or select a native calendar toolbar button to return to the calendar. Choose another range there, then reopen Kanban.
 
 The board uses the **currently loaded calendar items**, with repeated segments of the same assignment combined into one card. It does not fetch additional assignments or keep a historical assignment collection. Items the calendar hasn't rendered (for example, behind a “more” link) may be absent. Select the Assignments calendar to avoid including unrelated events. Empty ranges show an empty board.
 
-Moving a card updates the same synced status that colors its calendar entries; **To Do** clears that status. Manual ordering also saves in Chrome Sync, separately for each school and student profile, and is restored when those items appear again. New/unordered cards initially sort by title after ordered cards. A move through **Move to** appends the card to its destination column. Other open tabs update when Chrome delivers synced changes. The board follows the saved dark-mode preference.
+Moving a card updates the same synced status that colors its calendar entries; **To Do** clears that status. By default, each column sorts by earliest due date first, with undated items last and titles breaking ties. Manual ordering also saves in Chrome Sync, separately for each school and student profile, and is restored when those items appear again. Saved manual ordering takes precedence; new/unordered cards sort by due date after ordered cards. A move through **Move to** appends the card to its destination column. Other open tabs update when Chrome delivers synced changes. The board follows the saved dark-mode preference.
 
 Click an assignment's linked title to open it in a new tab. When the calendar supplies no usable web link, open the assignment from the calendar.
 
@@ -35,9 +39,9 @@ Cards show available assignment descriptions, limited to 200 characters with `..
 
 Every card includes a **due-date line**. Explicit due-date metadata takes priority; otherwise, the extension reads the assignment's calendar day or the final visible segment of a multi-day event from supported FullCalendar markup. Repeated segments are combined, using the latest applicable date. If a date cannot be determined reliably (including a multi-day event continuing beyond the loaded range), the card shows **Due date unavailable**.
 
-A **red flag in the upper-right corner** marks assignments due today through the next **two school days**, inclusive. School days mean Monday–Friday; weekends are skipped when calculating the cutoff, and holidays are not available to the extension. For example, on Friday, assignments due through Tuesday are flagged. Past dates and unknown dates are not flagged. Flags appear regardless of column, refresh when dates change or a new day begins, and do not change the assignment's saved status.
+A **red flag** on calendar events and in the upper-right corner of Kanban cards marks assignments due today through the next **two school days**, inclusive. School days mean Monday–Friday; weekends are skipped when calculating the cutoff, and holidays are not available to the extension. For example, on Friday, assignments due through Tuesday are flagged. Past dates and unknown dates are not flagged. Flags appear regardless of status, refresh when dates change or a new day begins, and do not change the assignment's saved status.
 
-The extension recognizes common FullCalendar toolbar and view containers. If it cannot locate a toolbar, use **Open Kanban** in the panel; if it cannot identify a calendar container, the board opens as a full-page overlay with a **Back to calendar** button.
+Kanban is available only in recognized calendar grid views. Both the toolbar icon and **Open Kanban** panel button are hidden in list views or unsupported views. Switching away from grid closes an open board. If a supported grid has no recognized toolbar, use **Open Kanban** in the panel.
 
 ## Compatibility and identity
 
@@ -68,7 +72,7 @@ Reference: https://developer.chrome.com/docs/extensions/reference/api/storage
 
 Run `node --test *.test.cjs`, `node --check content.js`, `node --check kanban.js`, and `node --check calendar-dates.js`. The dependency-free tests cover assignment identity, deduplication, manual ordering, profile isolation, usable assignment links, date parsing, and school-day calculations across weekends, DST, and year boundaries.
 
-For a local interactive fixture, open `demo.html` in a browser. It supplies an in-memory Chrome storage stub, so fixture statuses, ordering, and theme intentionally reset on reload. Verify marking, clearing, repeated segments, independent profiles, normal clicks, Kanban moves/reordering, and the simulated month-change button. The demo's Day/Week/Month buttons exercise returning from Kanban; they do not implement actual date views.
+For a local interactive fixture, open `demo.html#calendar` in a browser. It supplies an in-memory Chrome storage stub, so fixture statuses, ordering, and theme intentionally reset on reload. Verify marking, clearing, repeated segments, independent profiles, normal clicks, Kanban moves/reordering, and the simulated month-change button. The Calendar/Resources links exercise route-scoped dark mode. The demo's Day/Week/Month buttons exercise returning from Kanban; they do not implement actual date views.
 
 Optional automated browser checks:
 
@@ -79,6 +83,12 @@ node kanban.browser.cjs
 ```
 
 These checks use the demo with simulated Chrome storage, reload persistence, and a fixed clock to exercise the toolbar icon, due-date extraction and flags, date rollover, drag/drop, menu moves, ordering, syncing, save failures, profile changes, dark mode, and range/view changes. The extension itself needs no npm dependencies. Fixture checks do not replace testing on the real site.
+
+### Visual theme checks
+
+Open `theme-preview.html#calendar` for a screenshot-based reproduction of the school header, navigation, active Calendar tab, dropdown, and calendar grid. Its blue/yellow backgrounds live on outer wrappers, reproducing the contrast failure missed by the simpler demo. It uses sample data, not a saved copy of a signed-in Blackbaud page.
+
+Run `node theme.browser.cjs` to check navigation contrast (at least 4.5:1), preserved bar backgrounds, active/hover/focus states, dropdowns, route changes, and theme toggling at desktop and narrower widths. To save screenshots for visual inspection, pass an existing output directory: `node theme.browser.cjs /absolute/path/to/screenshots`. Review those images as well as the assertions; a passing fixture cannot confirm the live site's markup matches it.
 
 Built using Chrome's content script and storage model: https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts
 

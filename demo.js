@@ -15,9 +15,9 @@ globalThis.chrome = { storage: {
 } };
 document.getElementById('calendar').addEventListener('click', event => {
   const item = event.target.closest('.fc-event');
-  if (item) { event.preventDefault(); document.getElementById('opened').textContent = 'Normal assignment click: ' + item.textContent; }
+  if (item) { event.preventDefault(); const opened = document.getElementById('opened'); if (opened) opened.textContent = 'Normal assignment click: ' + item.textContent; }
 });
-document.getElementById('next').addEventListener('click', () => {
+document.getElementById('next')?.addEventListener('click', () => {
   const calendar = document.querySelector('#calendar .fc-view-container');
   const copy = calendar.firstElementChild.cloneNode(true);
   copy.querySelector('h2').textContent = 'New month (same assignments)';

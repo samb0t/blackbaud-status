@@ -28,6 +28,15 @@ test('manual ordering survives rebuilding the board and leaves hidden-range rank
   assert.deepEqual(cards(events, identifyA, records).map(item => item.key), keys);
 });
 
+test('default ordering uses earliest due dates, unknown dates last, and saved ranks first', () => {
+  const duplicate = event('Bravo continued', { 'data-assignment-id': '1' });
+  const dueDate = segments => segments.length > 1 ? '2026-10-06' : segments[0] === events[2] ? '2026-10-02' : null;
+  const input = [...events, duplicate];
+  assert.deepEqual(cards(input, identifyA, {}, dueDate).map(item => item.key), [keys[2], keys[1], keys[0]]);
+  const records = { [orderKey(keys[0])]: 1024 };
+  assert.deepEqual(cards(input, identifyA, records, dueDate).map(item => item.key), [keys[0], keys[2], keys[1]]);
+});
+
 test('moving across columns appends or inserts using the target column order', () => {
   const records = { [keys[0]]: 'done', [keys[1]]: 'done', [orderKey(keys[0])]: 1024, [orderKey(keys[1])]: 2048 };
   Object.assign(records, placement(cards(events, identifyA, records), records, keys[2], 'done', keys[1]), { [keys[2]]: 'done' });

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Calendar theme visual regression fixture</title>
+<link rel="stylesheet" href="content.css">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 18px/1.35 system-ui, sans-serif; color: #182636; background: white; }
+  /* The bars' backgrounds belong to OUTER wrappers, not header/nav themselves. */
+  .branding-band { background: #75c5df; }
+  .navigation-band { background: #fffbdc; }
+  .chrome-inner { max-width: 1440px; margin: auto; padding: 0 30px; }
+  header { display: flex; align-items: center; justify-content: space-between; min-height: 80px; }
+  .school-logo { font: bold 27px Georgia, serif; color: #1945b8; background: linear-gradient(120deg, white, #f6e455); padding: 8px 18px; }
+  .account { display: flex; align-items: center; gap: 20px; }
+  a { color: #509bbd; text-decoration: none; }
+  .account a, .account span { color: #b5c4d5; }
+  .badge { background: #173d51; color: white; border-radius: 5px; padding: 1px 6px; }
+  nav { display: flex; align-items: stretch; min-height: 90px; }
+  nav > a, nav > .menu > a { display: flex; align-items: center; gap: 10px; padding: 20px; }
+  nav .active { background: linear-gradient(#fffbdc, #f7ed9e); border: 2px solid #a1bed1; border-radius: 5px; }
+  nav .active span { color: #cde6f2; }
+  nav a:hover { background: #d9f2fa; }
+  nav a:focus-visible { outline: 2px solid #173d51; outline-offset: -3px; }
+  .icon { font-size: 30px; } .menu { position: relative; }
+  .dropdown-menu { position: absolute; top: 100%; left: 0; z-index: 2; margin: 0; padding: 8px 0; min-width: 240px; list-style: none; background: white; border: 1px solid #a1bed1; box-shadow: 0 4px 8px #0003; }
+  .dropdown-menu a { display: block; padding: 10px 20px; }
+  .dropdown-menu a:hover { background: #d9f2fa; }
+  [hidden] { display: none !important; }
+  main { margin: 55px 30px 30px; padding: 20px; }
+  .fc-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #333; }
+  .fc-toolbar h1 { margin: 0; font-size: 32px; font-weight: 400; color: white; }
+  button { padding: 9px 15px; border: 1px solid #a1bed1; background: #f5f8fb; color: #182636; font: inherit; }
+  .fc-view-container { border: 1px solid #a1bed1; }
+  .days, .calendar-week { display: grid; grid-template-columns: repeat(7, 1fr); }
+  .fc-day-header { padding: 10px; text-align: center; font-weight: 600; }
+  .day { min-height: 150px; border: 1px solid #d4dce5; padding: 8px; text-align: right; }
+  .fc-event { display: block; text-align: left; padding: 6px; margin-top: 12px; border-radius: 3px; background: #9fc5e8; font-size: 15px; }
+  .fc-title { display: block; }
+  @media (max-width: 1000px) { body { font-size: 15px; } .chrome-inner { padding: 0 15px; } nav > a, nav > .menu > a { padding: 14px; } .account { gap: 10px; } }
+</style>
+<div class="branding-band"><div class="chrome-inner"><header>
+  <div class="school-logo">SAMPLE SCHOOL</div>
+  <div class="account"><a href="#search" aria-label="Search">⌕ ▾</a><a href="#notes"><span class="badge">0</span> <span>Official Notes</span></a><a href="#profile"><span>◉ Sample Parent ▾</span></a></div>
+</header></div></div>
+<div class="navigation-band"><div class="chrome-inner"><nav aria-label="School navigation">
+  <a href="#student"><span class="icon">◉</span><span>Student</span></a>
+  <a href="#resources"><span class="icon">▤</span><span>Resources</span></a>
+  <a href="#news"><span class="icon">▣</span><span>News ▾</span></a>
+  <a class="active" aria-current="page" href="#calendar"><span class="icon">▦</span><span>Calendar</span></a>
+  <div class="menu"><a id="directories" href="#directories" aria-expanded="false"><span class="icon">▣</span><span>Directories ▾</span></a><ul class="dropdown-menu" hidden><li><a href="#students">Students</a></li><li><a href="#faculty">Faculty &amp; Staff</a></li><li><a href="#parents">Parents</a></li><li><a href="#contacts">My Contacts</a></li></ul></div>
+</nav></div></div>
+<main><div id="calendar" class="fc">
+  <div class="fc-toolbar"><div><button>Today</button><button>Day</button><button>Week</button><button class="fc-month-button fc-state-active">Month</button></div><h1>October 2026</h1><button>☷ List</button></div>
+  <div class="fc-view-container"><div class="fc-month-view">
+    <div class="days"><div class="fc-day-header">Sun</div><div class="fc-day-header">Mon</div><div class="fc-day-header">Tue</div><div class="fc-day-header">Wed</div><div class="fc-day-header">Thu</div><div class="fc-day-header">Fri</div><div class="fc-day-header">Sat</div></div>
+    <div class="calendar-week"><div class="day">27</div><div class="day">28</div><div class="day">29</div><div class="day">30</div><div class="day">1</div><div class="day fc-today">2<a class="fc-event" data-assignment-id="201" data-due-date="2026-10-02"><span class="fc-title">Reading response</span></a></div><div class="day">3</div></div>
+    <div class="calendar-week"><div class="day">4</div><div class="day">5<a class="fc-event" data-assignment-id="202" data-due-date="2026-10-05"><span class="fc-title">Math practice</span></a></div><div class="day">6</div><div class="day">7</div><div class="day">8</div><div class="day">9</div><div class="day">10</div></div>
+  </div></div>
+</div></main>
+<script>
+  document.getElementById('directories').addEventListener('click', event => {
+    event.preventDefault();
+    const menu = document.querySelector('.dropdown-menu'); menu.hidden = !menu.hidden;
+    event.currentTarget.setAttribute('aria-expanded', String(!menu.hidden));
+  });
+</script>
+<script src="demo.js"></script><script src="identity.js"></script><script src="calendar-dates.js"></script><script src="kanban-model.js"></script><script src="kanban.js"></script><script src="content.js"></script>
+</html>

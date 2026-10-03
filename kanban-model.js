@@ -1,9 +1,9 @@
 /* Pure board helpers, shared with the dependency-free tests. */
 (function (root) {
-  const columns = ['', 'progress', 'soon', 'done', 'ignore'];
+  const columns = ['', 'progress', 'done', 'ignore'];
   const orderKey = key => 'bbs-order:' + key;
   const rank = (records, key) => Number.isFinite(records[orderKey(key)]) ? records[orderKey(key)] : null;
-  function cards(events, identify, records) {
+  function cards(events, identify, records, getDueDate = () => null) {
     const unique = new Map();
     for (const event of events) {
       const identity = identify(event);
@@ -11,14 +11,14 @@
       if (unique.has(identity.key)) { unique.get(identity.key).events.push(event); continue; }
       unique.set(identity.key, { ...identity, events: [event], status: columns.includes(records[identity.key]) ? records[identity.key] : '' });
     }
-    return [...unique.values()].sort((a, b) => {
+    return [...unique.values()].map(item => ({ ...item, dueDate: getDueDate(item.events) })).sort((a, b) => {
       const left = rank(records, a.key), right = rank(records, b.key);
       if (left !== right) {
         if (left === null) return 1;
         if (right === null) return -1;
         return left - right;
       }
-      return a.title.localeCompare(b.title) || a.key.localeCompare(b.key);
+      return (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31') || a.title.localeCompare(b.title) || a.key.localeCompare(b.key);
     });
   }
   // Return only changed ranks. Normally one item is written; rebalance when

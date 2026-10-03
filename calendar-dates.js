@@ -118,6 +118,12 @@
   function dueDate(events) {
     return latest(events.map(explicitDate)) || latest(events.map(calendarDate));
   }
-  root.SchoolStatusCalendarDates = { attributes, parseDate, today, isDueSoon, formatDate, dueDate };
+  function createFlag(className) {
+    const flag = document.createElement('span'); flag.className = className;
+    flag.title = 'Due today or within 2 school days'; flag.setAttribute('role', 'img'); flag.setAttribute('aria-label', flag.title);
+    flag.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 2h2v2h13l-4 5 4 5H7v8H5z"/></svg>';
+    return flag;
+  }
+  root.SchoolStatusCalendarDates = { attributes, parseDate, today, isDueSoon, formatDate, dueDate, createFlag };
   if (typeof module !== 'undefined') module.exports = root.SchoolStatusCalendarDates;
 })(globalThis);

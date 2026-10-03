@@ -40,7 +40,7 @@
       button, select { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--edge); border-radius: 6px; padding: 6px 8px; }
       button, select { cursor: pointer; } button:disabled, select:disabled { opacity: .55; cursor: default; }
       :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-      #columns { display: grid; grid-template-columns: repeat(5, minmax(220px, 1fr)); gap: 12px; overflow-x: auto; padding: 8px 3px 16px; margin-top: 12px; }
+      #columns { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 12px; overflow-x: auto; padding: 8px 3px 16px; margin-top: 12px; }
       .column { background: var(--column); border: 1px solid var(--edge); border-top: 5px solid var(--accent); border-radius: 8px; padding: 12px; min-height: 260px; }
       .card { position: relative; background: var(--bg); border: 1px solid var(--edge); border-radius: 8px; padding: 12px; margin-bottom: 10px; overflow-wrap: anywhere; }
       .card[draggable=true] { cursor: grab; } .card.dragging { opacity: .45; }
@@ -65,7 +65,7 @@
     let open = false, items = [], events = [], busy = false, dragged = null, calendar = null, toolbar = null, signature = '', dateTimer;
     let renderedDay = dates.today();
     const summaries = new Map();
-    function capturePopups(popups, cards = model.cards(events, identify, getRecords())) {
+    function capturePopups(popups, cards = model.cards(events, identify, getRecords(), dates.dueDate)) {
       let changed = false;
       for (const popup of popups) {
         const description = popup.querySelector('.simple-topoffset');
@@ -88,9 +88,9 @@
       return changed;
     }
     function collect() {
-      const cards = model.cards(events, identify, getRecords());
+      const cards = model.cards(events, identify, getRecords(), dates.dueDate);
       capturePopups(document.querySelectorAll('.popover .popover-content'), cards);
-      return cards.map(item => ({ ...item, dueDate: dates.dueDate(item.events), summary: summaries.get(item.key) ?? summary(item.events) }));
+      return cards.map(item => ({ ...item, summary: summaries.get(item.key) ?? summary(item.events) }));
     }
     // Capture independently of the calendar's debounced refresh. Include removed
     // popups: Bootstrap may remove them before that refresh ever gets to run.
@@ -116,6 +116,20 @@
       for (const element of hidden) element.removeAttribute('data-bbs-kanban-hidden');
       hidden.clear();
     }
+    function isGridView() {
+      const root = document.querySelector('.fc, #calendar');
+      if (!root) return false;
+      const visible = node => {
+        for (let element = node; element && element !== root; element = element.parentElement) {
+          if (element.hasAttribute('data-bbs-kanban-hidden')) continue;
+          if (element.hidden || getComputedStyle(element).display === 'none') return false;
+        }
+        return true;
+      };
+      const has = selector => [...root.querySelectorAll(selector)].some(visible);
+      if (has('.fc-list-view, .fc-list, .fc-list-event, .fc-list-item')) return false;
+      return has('.fc-dayGridMonth-view, .fc-dayGridWeek-view, .fc-dayGridDay-view, .fc-timeGridWeek-view, .fc-timeGridDay-view, .fc-daygrid, .fc-timegrid, .fc-month-view, .fc-basicWeek-view, .fc-basicDay-view, .fc-agendaWeek-view, .fc-agendaDay-view, .fc-grid, .fc-agenda');
+    }
     function mount() {
       const root = events.find(event => event.closest('.fc, #calendar'))?.closest('.fc, #calendar')
         || document.querySelector('.fc, #calendar');
@@ -127,7 +141,10 @@
       }
       const month = toolbar?.querySelector('.fc-dayGridMonth-button, .fc-month-button, .fc-button-month')
         || [...(toolbar?.querySelectorAll('button, a, [role="button"], .fc-button') || [])].find(button => button !== tab && /^month$/i.test(button.textContent.trim()));
-      if (month) {
+      if (!isGridView()) {
+        tab.remove();
+        if (open) setOpen(false, false);
+      } else if (month) {
         if (month.nextElementSibling !== tab) month.after(tab);
       } else if (toolbar && !toolbar.contains(tab)) {
         // Legacy FullCalendar uses a table header rather than toolbar divs.
@@ -151,6 +168,7 @@
       if (event.target.closest('button, .fc-button, [role="button"]')) setOpen(false, false);
     }
     function setOpen(value, focus = true) {
+      if (value && !isGridView()) return;
       if (open === value) return;
       if (value) items = collect();
       open = value; dragged = null;
@@ -221,8 +239,7 @@
           const card = document.createElement('article'); card.className = 'card'; card.dataset.key = item.key; card.draggable = !busy;
           const handle = document.createElement('span'); handle.className = 'drag-handle'; handle.textContent = '⠿'; handle.title = 'Drag to move'; handle.setAttribute('aria-hidden', 'true'); handle.draggable = !busy; card.append(handle);
           if (dates.isDueSoon(item.dueDate)) {
-            const flag = document.createElement('span'); flag.className = 'due-flag'; flag.title = 'Due today or within 2 school days'; flag.setAttribute('role', 'img'); flag.setAttribute('aria-label', flag.title);
-            flag.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 2h2v2h13l-4 5 4 5H7v8H5z"/></svg>'; card.append(flag);
+            card.append(dates.createFlag('due-flag'));
           }
           const url = model.assignmentURL(item.events, location.href);
           const title = document.createElement(url ? 'a' : 'span'); title.className = 'title'; title.textContent = item.title;
@@ -271,6 +288,7 @@
     shadow.addEventListener('keydown', event => { if (event.key === 'Escape' && !dragged) setOpen(false); });
     return {
       get isOpen() { return open; },
+      get isAvailable() { return isGridView(); },
       setOpen,
       applyTheme(dark) { host.toggleAttribute('data-dark', dark); },
       update(nextEvents) {

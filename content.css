@@ -1,3 +1,33 @@
+/* Page-wide theme. Attribute scoping also covers content added during navigation. */
+html[data-bbs-dark] { color-scheme: dark; background: #111923 !important; }
+[data-bbs-dark] :where(body, body *) {
+  color: #edf2f7 !important;
+  background-color: transparent !important;
+  border-color: #46576b !important;
+  text-shadow: none !important;
+}
+[data-bbs-dark] :where(body) { background: #111923 !important; }
+[data-bbs-dark] :where(header, nav, aside, main, footer, .navbar, .panel, .panel-heading, .panel-body, .well, .card, .modal-content, .modal-header, .modal-body, .modal-footer, .dropdown-menu, .popover, .popover-content, .tooltip-inner, #calendar, .fc, .week) {
+  background: #18222f !important;
+}
+[data-bbs-dark] :where(a, a *) { color: #9bc7ff !important; }
+[data-bbs-dark] :where(button, input, select, textarea, option, .btn, .fc-button) {
+  background: #273649 !important;
+  color: #edf2f7 !important;
+  box-shadow: none !important;
+}
+[data-bbs-dark] :where(button:hover, .btn:hover, .fc-button:hover, .dropdown-menu > li > a:hover, .fc-list-event:hover td, .fc-list-item:hover td) { background: #34485f !important; }
+[data-bbs-dark] :where(.active > a, .btn.active, .fc-state-active, .fc-button-active, [aria-pressed="true"]) { background: #24517d !important; }
+[data-bbs-dark] :where(input::placeholder, textarea::placeholder) { color: #b5c4d5 !important; opacity: 1; }
+[data-bbs-dark] :where(:focus-visible) { outline: 2px solid #8bbcff !important; outline-offset: 2px; }
+[data-bbs-dark] :where(.fc-col-header-cell, .fc-day-header, .fc-list-heading td, .fc-list-day-cushion, .fc-scrollgrid-section-header, .fc-toolbar) { background: #223044 !important; }
+[data-bbs-dark] :where(.fc-today, .fc-day-today) { background: #243b50 !important; }
+[data-bbs-dark] :where(.fc-event, .fc-list-event, .fc-list-item) { background: #294560 !important; color: #edf2f7 !important; }
+[data-bbs-dark] :where(.fc-event *, .fc-list-event *, .fc-list-item *) { color: #edf2f7 !important; }
+[data-bbs-dark] :where(.fc-highlight) { background: #416d96 !important; }
+[data-bbs-dark] :where(.fc-nonbusiness, .fc-non-business) { background: #0e1621 !important; }
+[data-bbs-dark] :where(.bbs-marking:hover) { outline-color: #8bbcff !important; }
+
 /* Override event and inner fills, including older FullCalendar markup. */
 [data-bbs-status="progress"] { --bbs-fill: #ffe49a; --bbs-edge: #9e7300; }
 [data-bbs-status="soon"] { --bbs-fill: #ffc1bb; --bbs-edge: #b63126; }
@@ -13,5 +43,6 @@
 [data-bbs-status] { box-shadow: inset 4px 0 var(--bbs-edge) !important; }
 [data-bbs-status] a, [data-bbs-status] .fc-title,
 [data-bbs-status] .fc-event-title { color: #182636 !important; }
+[data-bbs-status] * { color: #182636 !important; }
 .bbs-marking { cursor: crosshair !important; }
 .bbs-marking:hover { outline: 2px solid #163d68 !important; outline-offset: 1px; }

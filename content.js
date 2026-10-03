@@ -12,9 +12,21 @@
     * { box-sizing: border-box; } section { width: 290px; border: 1px solid #cbd5df; background: white; border-radius: 14px; padding: 16px; box-shadow: 0 8px 35px #18263630; }
     header { display: flex; align-items: center; justify-content: space-between; gap: 12px; } strong { font-size: 16px; } button, input { font: inherit; } button { cursor: pointer; border: 1px solid #b9c7d4; border-radius: 7px; padding: 8px 10px; background: #f5f8fb; color: #182636; } button:hover { filter: brightness(.96); } button:focus-visible, input:focus-visible { outline: 3px solid #276ac3; outline-offset: 2px; }
     #toggle { width: 100%; margin-top: 12px; } #toggle[aria-pressed=true] { background: #163d68; color: white; } p { margin: 10px 0; } small { color: #536479; display: block; margin-top: 8px; } label { display: block; margin-top: 12px; } input { width: 100%; padding: 7px; border: 1px solid #b9c7d4; border-radius: 6px; } #choices { display: grid; gap: 6px; } #selection { border-top: 1px solid #dce3e9; margin-top: 12px; padding-top: 12px; } #title { overflow-wrap: anywhere; font-weight: 600; } #message { color: #9b3028; } [hidden] { display: none !important; } #legend { font-size: 12px; } #legend span { display: inline-block; padding: 2px 5px; border-radius: 4px; margin: 3px 2px 0 0; }
+    :host { color-scheme: light; }
+    #theme { width: 100%; margin-top: 12px; }
+    button:disabled { cursor: wait; opacity: .65; }
+    input { background: white; color: #182636; }
+    #legend span { color: #182636; }
+    :host([data-theme="dark"]) { color: #edf2f7; color-scheme: dark; }
+    :host([data-theme="dark"]) section { background: #18222f; border-color: #586b80; }
+    :host([data-theme="dark"]) button, :host([data-theme="dark"]) input { background: #273649; color: #edf2f7; border-color: #586b80; }
+    :host([data-theme="dark"]) small, :host([data-theme="dark"]) input::placeholder { color: #b5c4d5; }
+    :host([data-theme="dark"]) #selection { border-color: #586b80; }
+    :host([data-theme="dark"]) #message { color: #ffaaa2; }
+    :host([data-theme="dark"]) button:focus-visible, :host([data-theme="dark"]) input:focus-visible { outline-color: #8bbcff; }
   </style><section aria-label="Personal assignment statuses">
     <header><strong>My statuses</strong><button id="collapse" aria-expanded="true" aria-label="Collapse status panel">−</button></header>
-    <div id="body"><button id="toggle" aria-pressed="false">Start marking</button>
+    <div id="body"><button id="theme" aria-pressed="false" disabled>Dark mode</button><button id="toggle" aria-pressed="false">Start marking</button>
     <small id="count" role="status"></small>
     <div id="legend"><span style="background:#ffe49a">In progress</span><span style="background:#ffc1bb">Due soon</span><span style="background:#bce8c7">Done</span><span style="background:#d7dce2">In class / don’t worry</span></div>
     <label for="scope">Student / calendar profile</label><input id="scope" maxlength="100" placeholder="e.g. Student A" />
@@ -25,6 +37,13 @@
   const $ = id => shadow.getElementById(id);
   let records = {}, scope = '', marking = false, selected = null, pending = false;
   const scopeKey = 'bbs-profile:' + location.origin;
+  const themeKey = 'bbs-setting:dark-mode';
+  function applyTheme() {
+    const dark = records[themeKey] === true;
+    host.setAttribute('data-theme', dark ? 'dark' : 'light');
+    document.documentElement.toggleAttribute('data-bbs-dark', dark);
+    $('theme').setAttribute('aria-pressed', String(dark));
+  }
   const identify = event => SchoolStatusIdentity.identify(event, location.origin, scope);
   function closeSelection() { selected = null; $('selection').hidden = true; }
   function refresh() {
@@ -48,7 +67,8 @@
   }
   for (const [value, [label, color]] of [...Object.entries(statuses), ['', ['Clear personal status', '#f5f8fb']]]) {
     const button = document.createElement('button');
-    button.textContent = label; button.style.backgroundColor = color;
+    button.textContent = label;
+    if (value) { button.style.backgroundColor = color; button.style.color = '#182636'; }
     button.addEventListener('click', async () => {
       if (!selected || pending) return;
       const key = selected.key;
@@ -64,6 +84,16 @@
     $('choices').append(button);
   }
   $('toggle').addEventListener('click', () => setMarking(!marking));
+  $('theme').addEventListener('click', async () => {
+    if ($('theme').disabled) return;
+    const dark = records[themeKey] !== true;
+    $('theme').disabled = true; $('message').textContent = '';
+    try {
+      await chrome.storage.sync.set({ [themeKey]: dark });
+      records[themeKey] = dark; applyTheme();
+    } catch { $('message').textContent = 'Dark mode could not be saved to Chrome sync storage. Wait and try again.'; }
+    finally { $('theme').disabled = false; }
+  });
   $('cancel').addEventListener('click', () => { closeSelection(); $('toggle').focus(); });
   $('collapse').addEventListener('click', () => {
     const collapsed = !$('body').hidden;
@@ -100,11 +130,12 @@
     for (const [key, change] of Object.entries(changes)) {
       if (change.newValue === undefined) delete records[key]; else records[key] = change.newValue;
     }
-    refresh();
+    applyTheme(); refresh();
   });
   async function start() {
     try {
       records = await chrome.storage.sync.get(null);
+      applyTheme(); $('theme').disabled = false;
       const local = await chrome.storage.local.get(scopeKey);
       scope = typeof local[scopeKey] === 'string' ? local[scopeKey] : '';
       $('scope').value = scope;

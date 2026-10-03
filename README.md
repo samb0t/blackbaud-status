@@ -14,6 +14,8 @@ A dependency-free Chrome Manifest V3 extension for personal calendar colors on `
 
 Colors persist across reloads and month changes. Due soon is manually assigned; no due dates are inferred. Switching the profile changes the set of personal statuses. Use distinct profile names for different children, especially if the site doesn't include a child name in event titles.
 
+Click **Dark mode** in the **My statuses** panel to toggle a dark appearance for the entire calendar page, including navigation, calendar cells, controls, and the status panel. Light mode is the default. The preference is saved alongside statuses in Chrome Sync, restored on reload, and applied to other open calendar tabs when it changes. It is shared across schools and student profiles. Status colors stay recognizable in both themes. Turning dark mode off restores the site's original appearance, and newly loaded calendar content automatically follows the selected theme.
+
 ## Compatibility and identity
 
 This initial implementation targets FullCalendar's older `.fc-event` markup and newer month/list event classes, based on common FullCalendar markup. It has **not been validated against a logged-in Blackbaud page**. The panel is shown only when supported calendar items exist. It permits marking any supported calendar event, so select the Assignments calendar in Blackbaud when marking homework.

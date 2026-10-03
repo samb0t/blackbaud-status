@@ -9,14 +9,14 @@ button { padding:10px; } #opened { min-height:24px; }
 </style>
 <main><h1>Personal assignment statuses</h1><p>Test calendar · Select Start marking in the bottom-right panel.</p>
 <button id="next">Simulate month navigation</button><p id="opened" role="status"></p>
-<div id="calendar">
+<div id="calendar"><div class="fc-toolbar"><h2>Sample calendar</h2><div class="fc-right"><div class="fc-button-group"><button type="button">Day</button><button type="button">Week</button><button type="button" class="fc-month-button">Month</button></div></div></div><div class="fc-view-container">
 <div class="week"><h2>Week one</h2>
-<a class="fc-event" href="#assignment" data-assignment-id="101"><span class="fc-title">Sample Project (Student A)</span></a>
-<a class="fc-event" href="#assignment" data-assignment-id="102"><span class="fc-title">Sample Practice (Student A)</span></a>
-<a class="fc-event" href="#assignment"><span class="fc-title">Sample Reading (Student A)</span></a></div>
+<a class="fc-event" href="#assignment" data-assignment-id="101" data-due-date="2026-10-06"><span class="fc-title">Sample Project (Student A)</span></a>
+<a class="fc-event" href="#assignment" data-assignment-id="102" data-date="2026-10-02"><span class="fc-title">Sample Practice (Student A)</span></a>
+<a class="fc-event" href="#assignment" data-due-date="2026-10-07"><span class="fc-title">Sample Reading (Student A)</span></a></div>
 <div class="week"><h2>Week two</h2>
-<a class="fc-event" href="#assignment" data-assignment-id="101"><span class="fc-title">Sample Project (Student A)</span></a>
+<a class="fc-event" href="#assignment" data-assignment-id="101" data-due-date="2026-10-06"><span class="fc-title">Sample Project (Student A)</span></a>
 <a class="fc-event" href="#assignment" data-assignment-id="103"><span class="fc-title">Sample Practice (Student A)</span></a>
-</div></div></main>
-<script src="demo.js"></script><script src="identity.js"></script><script src="content.js"></script>
+</div></div></div></main>
+<script src="demo.js"></script><script src="identity.js"></script><script src="calendar-dates.js"></script><script src="kanban-model.js"></script><script src="kanban.js"></script><script src="content.js"></script>
 </html>

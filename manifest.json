@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "My School Assignment Statuses",
-  "version": "0.2.1",
-  "description": "Personal calendar status colors with Chrome Sync across your signed-in browsers.",
+  "version": "0.3.0",
+  "description": "Personal calendar statuses, dark mode, and a Kanban assignment board with Chrome Sync.",
   "permissions": [
     "storage"
   ],
@@ -13,6 +13,9 @@
       ],
       "js": [
         "identity.js",
+        "calendar-dates.js",
+        "kanban-model.js",
+        "kanban.js",
         "content.js"
       ],
       "css": [

@@ -1,0 +1,56 @@
+/* Pure board helpers, shared with the dependency-free tests. */
+(function (root) {
+  const columns = ['', 'progress', 'soon', 'done', 'ignore'];
+  const orderKey = key => 'bbs-order:' + key;
+  const rank = (records, key) => Number.isFinite(records[orderKey(key)]) ? records[orderKey(key)] : null;
+  function cards(events, identify, records) {
+    const unique = new Map();
+    for (const event of events) {
+      const identity = identify(event);
+      if (!identity) continue;
+      if (unique.has(identity.key)) { unique.get(identity.key).events.push(event); continue; }
+      unique.set(identity.key, { ...identity, events: [event], status: columns.includes(records[identity.key]) ? records[identity.key] : '' });
+    }
+    return [...unique.values()].sort((a, b) => {
+      const left = rank(records, a.key), right = rank(records, b.key);
+      if (left !== right) {
+        if (left === null) return 1;
+        if (right === null) return -1;
+        return left - right;
+      }
+      return a.title.localeCompare(b.title) || a.key.localeCompare(b.key);
+    });
+  }
+  // Return only changed ranks. Normally one item is written; rebalance when
+  // inserting among unranked cards or when floating-point gaps are exhausted.
+  function placement(items, records, key, status, beforeKey = null) {
+    if (!columns.includes(status) || !items.some(item => item.key === key)) return null;
+    const target = items.filter(item => item.status === status && item.key !== key);
+    let index = beforeKey === null ? target.length : target.findIndex(item => item.key === beforeKey);
+    if (index < 0) return null;
+    target.splice(index, 0, items.find(item => item.key === key));
+    const previous = index > 0 ? rank(records, target[index - 1].key) : null;
+    const next = index + 1 < target.length ? rank(records, target[index + 1].key) : null;
+    const value = previous === null ? (next === null ? 1024 : next - 1024)
+      : next === null ? previous + 1024 : previous + (next - previous) / 2;
+    const unranked = target.some(item => item.key !== key && rank(records, item.key) === null);
+    if (!unranked && Number.isFinite(value) && (previous === null || value > previous) && (next === null || value < next)) {
+      return { [orderKey(key)]: value };
+    }
+    return Object.fromEntries(target.map((item, i) => [orderKey(item.key), (i + 1) * 1024])
+      .filter(([key, value]) => records[key] !== value));
+  }
+  function assignmentURL(events, base) {
+    for (const event of events) {
+      const href = event.getAttribute('href') || event.querySelector('a[href]')?.getAttribute('href');
+      if (!href || href.trim() === '#') continue;
+      try {
+        const url = new URL(href, base);
+        if (['https:', 'http:'].includes(url.protocol)) return url.href;
+      } catch { /* Leave cards without usable links as plain titles. */ }
+    }
+    return null;
+  }
+  root.SchoolStatusKanbanModel = { columns, orderKey, cards, placement, assignmentURL };
+  if (typeof module !== 'undefined') module.exports = root.SchoolStatusKanbanModel;
+})(globalThis);

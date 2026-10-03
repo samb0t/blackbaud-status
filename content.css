@@ -1,3 +1,8 @@
+[data-bbs-kanban-hidden] { display: none !important; }
+.bbs-kanban-tab { display: inline-flex !important; align-items: center; justify-content: center; vertical-align: middle; width: 32px !important; min-width: 0 !important; padding: 5px !important; margin-left: 0 !important; line-height: 1 !important; cursor: pointer; }
+.bbs-kanban-tab svg { display: block; width: 18px; height: 18px; fill: currentColor; pointer-events: none; }
+.bbs-kanban-tab[aria-pressed="true"] { background: #24517d !important; color: white !important; }
+
 /* Page-wide theme. Attribute scoping also covers content added during navigation. */
 html[data-bbs-dark] { color-scheme: dark; background: #111923 !important; }
 [data-bbs-dark] :where(body, body *) {

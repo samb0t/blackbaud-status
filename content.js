@@ -13,7 +13,7 @@
     header { display: flex; align-items: center; justify-content: space-between; gap: 12px; } strong { font-size: 16px; } button, input { font: inherit; } button { cursor: pointer; border: 1px solid #b9c7d4; border-radius: 7px; padding: 8px 10px; background: #f5f8fb; color: #182636; } button:hover { filter: brightness(.96); } button:focus-visible, input:focus-visible { outline: 3px solid #276ac3; outline-offset: 2px; }
     #toggle { width: 100%; margin-top: 12px; } #toggle[aria-pressed=true] { background: #163d68; color: white; } p { margin: 10px 0; } small { color: #536479; display: block; margin-top: 8px; } label { display: block; margin-top: 12px; } input { width: 100%; padding: 7px; border: 1px solid #b9c7d4; border-radius: 6px; } #choices { display: grid; gap: 6px; } #selection { border-top: 1px solid #dce3e9; margin-top: 12px; padding-top: 12px; } #title { overflow-wrap: anywhere; font-weight: 600; } #message { color: #9b3028; } [hidden] { display: none !important; } #legend { font-size: 12px; } #legend span { display: inline-block; padding: 2px 5px; border-radius: 4px; margin: 3px 2px 0 0; }
     :host { color-scheme: light; }
-    #theme { width: 100%; margin-top: 12px; }
+    #theme, #board { width: 100%; margin-top: 12px; }
     button:disabled { cursor: wait; opacity: .65; }
     input { background: white; color: #182636; }
     #legend span { color: #182636; }
@@ -26,7 +26,7 @@
     :host([data-theme="dark"]) button:focus-visible, :host([data-theme="dark"]) input:focus-visible { outline-color: #8bbcff; }
   </style><section aria-label="Personal assignment statuses">
     <header><strong>My statuses</strong><button id="collapse" aria-expanded="true" aria-label="Collapse status panel">−</button></header>
-    <div id="body"><button id="theme" aria-pressed="false" disabled>Dark mode</button><button id="toggle" aria-pressed="false">Start marking</button>
+    <div id="body"><button id="theme" aria-pressed="false" disabled>Dark mode</button><button id="board" aria-pressed="false">Open Kanban</button><button id="toggle" aria-pressed="false">Start marking</button>
     <small id="count" role="status"></small>
     <div id="legend"><span style="background:#ffe49a">In progress</span><span style="background:#ffc1bb">Due soon</span><span style="background:#bce8c7">Done</span><span style="background:#d7dce2">In class / don’t worry</span></div>
     <label for="scope">Student / calendar profile</label><input id="scope" maxlength="100" placeholder="e.g. Student A" />
@@ -38,17 +38,42 @@
   let records = {}, scope = '', marking = false, selected = null, pending = false;
   const scopeKey = 'bbs-profile:' + location.origin;
   const themeKey = 'bbs-setting:dark-mode';
+  const kanban = SchoolStatusKanban.create({
+    identify: event => identify(event), getRecords: () => records, getScope: () => scope, statuses,
+    async saveMove(key, status, ranks) {
+      if (pending) throw new Error('A save is already in progress.');
+      pending = true;
+      try {
+        const values = { ...ranks, ...(status ? { [key]: status } : {}) };
+        await chrome.storage.sync.set(values);
+        Object.assign(records, values);
+        if (!status) { await chrome.storage.sync.remove(key); delete records[key]; }
+      } catch (error) {
+        // Clearing a status and saving ordering are separate storage operations.
+        // Re-read after partial failure so the board reflects what actually saved.
+        try { records = await chrome.storage.sync.get(null); } catch { /* Keep the last known data. */ }
+        throw error;
+      } finally { pending = false; refresh(); }
+    },
+    onOpenChange(open) {
+      $('board').setAttribute('aria-pressed', String(open));
+      $('board').textContent = open ? 'Back to calendar' : 'Open Kanban';
+      $('toggle').hidden = open;
+      if (open) setMarking(false);
+    }
+  });
   function applyTheme() {
     const dark = records[themeKey] === true;
     host.setAttribute('data-theme', dark ? 'dark' : 'light');
     document.documentElement.toggleAttribute('data-bbs-dark', dark);
+    kanban.applyTheme(dark);
     $('theme').setAttribute('aria-pressed', String(dark));
   }
   const identify = event => SchoolStatusIdentity.identify(event, location.origin, scope);
   function closeSelection() { selected = null; $('selection').hidden = true; }
   function refresh() {
     const events = [...document.querySelectorAll(selector)];
-    host.hidden = events.length === 0;
+    host.hidden = events.length === 0 && !document.querySelector('.fc, #calendar') && !kanban.isOpen;
     $('count').textContent = `${events.length} calendar items found. ${marking ? 'Click an item to set its status. Esc stops marking.' : 'Normal calendar clicks are enabled.'}`;
     for (const event of events) {
       const identity = identify(event);
@@ -58,6 +83,7 @@
       } else if (event.hasAttribute('data-bbs-status')) event.removeAttribute('data-bbs-status');
       event.classList.toggle('bbs-marking', marking);
     }
+    kanban.update(events);
   }
   function setMarking(value) {
     marking = value;
@@ -84,6 +110,7 @@
     $('choices').append(button);
   }
   $('toggle').addEventListener('click', () => setMarking(!marking));
+  $('board').addEventListener('click', () => kanban.setOpen(!kanban.isOpen));
   $('theme').addEventListener('click', async () => {
     if ($('theme').disabled) return;
     const dark = records[themeKey] !== true;
@@ -146,7 +173,7 @@
     new MutationObserver(mutations => {
       if (!mutations.some(m => m.type !== 'attributes' || !['data-bbs-status', 'class'].includes(m.attributeName))) return;
       clearTimeout(timer); timer = setTimeout(refresh, 100);
-    }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['href', 'data-event-id', 'data-eventid', 'data-assignment-id', 'data-assignmentid'] });
+    }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['href', 'aria-describedby', 'data-event-id', 'data-eventid', 'data-assignment-id', 'data-assignmentid', 'data-summary', 'data-description', ...SchoolStatusCalendarDates.attributes] });
   }
   start();
 })();

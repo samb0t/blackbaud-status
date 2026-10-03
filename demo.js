@@ -18,7 +18,7 @@ document.getElementById('calendar').addEventListener('click', event => {
   if (item) { event.preventDefault(); document.getElementById('opened').textContent = 'Normal assignment click: ' + item.textContent; }
 });
 document.getElementById('next').addEventListener('click', () => {
-  const calendar = document.getElementById('calendar');
+  const calendar = document.querySelector('#calendar .fc-view-container');
   const copy = calendar.firstElementChild.cloneNode(true);
   copy.querySelector('h2').textContent = 'New month (same assignments)';
   copy.querySelectorAll('[data-bbs-status]').forEach(el => el.removeAttribute('data-bbs-status'));

@@ -9,7 +9,11 @@ globalThis.chrome = { storage: {
       for (const [key, value] of Object.entries(values)) { changes[key] = { newValue: value }; saved[key] = value; }
       listeners.forEach(fn => fn(changes, 'sync'));
     },
-    remove: async key => { delete saved[key]; listeners.forEach(fn => fn({ [key]: {} }, 'sync')); }
+    remove: async keys => {
+      const changes = {};
+      for (const key of Array.isArray(keys) ? keys : [keys]) { delete saved[key]; changes[key] = {}; }
+      listeners.forEach(fn => fn(changes, 'sync'));
+    }
   },
   onChanged: { addListener: fn => listeners.push(fn) }
 } };

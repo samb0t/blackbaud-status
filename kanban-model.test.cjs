@@ -1,12 +1,28 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { identify } = require('./identity.js');
-const { cards, placement, orderKey, assignmentURL } = require('./kanban-model.js');
+const { cards, placement, orderKey, assignmentURL, customPrefix, dataKey, customCards } = require('./kanban-model.js');
 const origin = 'https://example.myschoolapp.com';
 const event = (title, attributes = {}) => ({ textContent: title, querySelector: () => null, getAttribute: name => attributes[name] || null });
 const identifyA = element => identify(element, origin, 'Student A');
 const events = ['Alpha', 'Bravo', 'Charlie'].map((title, index) => event(title, { 'data-assignment-id': String(index) }));
 const keys = events.map(element => identifyA(element).key);
+
+test('custom cards isolate school/profile data and keep identical titles distinct', () => {
+  const a = customPrefix(origin, 'Student A') + 'one', b = customPrefix(origin, 'Student A') + 'two';
+  const value = { title: 'Alpha', dueDate: '2026-10-06', summary: 'Personal task' };
+  const records = { [dataKey(a)]: value, [dataKey(b)]: value, [a]: 'progress' };
+  assert.equal(customCards(records, origin, 'Student B').length, 0);
+  assert.equal(customCards(records, 'https://other.myschoolapp.com', 'Student A').length, 0);
+  const custom = customCards(records, origin, ' Student   A ');
+  const result = cards(events, identifyA, records, () => '2026-10-07', custom);
+  assert.equal(result.length, 5);
+  assert.deepEqual(result.slice(0, 2).map(item => item.key), [a, b]);
+  assert.equal(result[0].status, 'progress');
+  assert.equal(cards([], identifyA, records, () => null, custom).length, 2);
+  Object.assign(records, placement(result, records, b, '', keys[0]));
+  assert.equal(cards(events, identifyA, records, () => '2026-10-07', custom)[0].key, b);
+});
 
 test('board deduplicates calendar segments and shares the calendar identity/status', () => {
   const duplicate = event('Alpha continued', { 'data-assignment-id': '0' });

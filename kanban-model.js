@@ -3,7 +3,14 @@
   const columns = ['', 'progress', 'done', 'ignore'];
   const orderKey = key => 'bbs-order:' + key;
   const rank = (records, key) => Number.isFinite(records[orderKey(key)]) ? records[orderKey(key)] : null;
-  function cards(events, identify, records, getDueDate = () => null) {
+  const customPrefix = (origin, scope) => 'bbs-custom:' + JSON.stringify([origin, (scope || '').replace(/\s+/g, ' ').trim()]) + ':';
+  const dataKey = key => 'bbs-card:' + key;
+  function customCards(records, origin, scope) {
+    const prefix = customPrefix(origin, scope);
+    return Object.entries(records).filter(([key, value]) => key.startsWith(dataKey(prefix)) && value && typeof value.title === 'string' && typeof value.summary === 'string' && typeof value.dueDate === 'string')
+      .map(([key, value]) => ({ key: key.slice('bbs-card:'.length), title: value.title, summary: value.summary, dueDate: value.dueDate, custom: true, events: [] }));
+  }
+  function cards(events, identify, records, getDueDate = () => null, custom = []) {
     const unique = new Map();
     for (const event of events) {
       const identity = identify(event);
@@ -11,7 +18,8 @@
       if (unique.has(identity.key)) { unique.get(identity.key).events.push(event); continue; }
       unique.set(identity.key, { ...identity, events: [event], status: columns.includes(records[identity.key]) ? records[identity.key] : '' });
     }
-    return [...unique.values()].map(item => ({ ...item, dueDate: getDueDate(item.events) })).sort((a, b) => {
+    return [...[...unique.values()].map(item => ({ ...item, dueDate: getDueDate(item.events) })),
+      ...custom.map(item => ({ ...item, status: columns.includes(records[item.key]) ? records[item.key] : '' }))].sort((a, b) => {
       const left = rank(records, a.key), right = rank(records, b.key);
       if (left !== right) {
         if (left === null) return 1;
@@ -51,6 +59,6 @@
     }
     return null;
   }
-  root.SchoolStatusKanbanModel = { columns, orderKey, cards, placement, assignmentURL };
+  root.SchoolStatusKanbanModel = { columns, orderKey, customPrefix, dataKey, customCards, cards, placement, assignmentURL };
   if (typeof module !== 'undefined') module.exports = root.SchoolStatusKanbanModel;
 })(globalThis);

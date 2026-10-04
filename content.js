@@ -47,6 +47,24 @@
   const themeKey = 'bbs-setting:dark-mode';
   const kanban = SchoolStatusKanban.create({
     identify: event => identify(event), getRecords: () => records, getScope: () => scope, statuses,
+    async saveCustom(key, value) {
+      if (pending) throw new Error('A save is already in progress.');
+      pending = true;
+      const model = SchoolStatusKanbanModel;
+      try {
+        if (value) {
+          await chrome.storage.sync.set({ [model.dataKey(key)]: value });
+          records[model.dataKey(key)] = value;
+        } else {
+          const keys = [model.dataKey(key), key, model.orderKey(key)];
+          await chrome.storage.sync.remove(keys);
+          keys.forEach(key => delete records[key]);
+        }
+      } catch (error) {
+        try { records = await chrome.storage.sync.get(null); } catch { /* Keep the last known data. */ }
+        throw error;
+      } finally { pending = false; refresh(); }
+    },
     async saveMove(key, status, ranks) {
       if (pending) throw new Error('A save is already in progress.');
       pending = true;

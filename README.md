@@ -29,7 +29,13 @@ The theme preserves background colors on wrappers around the site navigation as 
 5. For keyboard or touch use, choose a column with **Move to**, and reorder with the small **↑ / ↓** buttons (with tooltips and accessible labels).
 6. Click **Back to calendar**, press Escape while focused in the board, or select a native calendar toolbar button to return to the calendar. Choose another range there, then reopen Kanban.
 
-The board uses the **currently loaded calendar items**, with repeated segments of the same assignment combined into one card. It does not fetch additional assignments or keep a historical assignment collection. Items the calendar hasn't rendered (for example, behind a “more” link) may be absent. Select the Assignments calendar to avoid including unrelated events. Empty ranges show an empty board.
+The board uses the **currently loaded calendar items**, with repeated segments of the same assignment combined into one card. It does not fetch additional assignments or keep a historical assignment collection. Items the calendar hasn't rendered (for example, behind a “more” link) may be absent. Select the Assignments calendar to avoid including unrelated events. Custom cards remain visible even in empty calendar ranges.
+
+### Custom cards
+
+Click **Add custom card**, enter a **title** and **due date**, add an optional **summary**, and click **Save card**. New cards start in **To Do**. Titles support up to 200 characters and summaries up to 1,000 characters; summaries display as plain text with line breaks preserved. Custom cards use the same due-date flags, sorting, drag-and-drop, column menus, and ordering controls as assignments.
+
+Custom cards have a subtle **purple border**. Use the **pencil** icon beside the grab handle to edit details while preserving the card's column and position, or the **trash-can** icon to delete it after confirmation. Both icons have tooltips and accessible labels. **Cancel** or Escape dismisses the editor. Custom cards are saved in Chrome Sync for the current school and student/profile and remain on the board across calendar ranges and reloads. Cards with identical titles are independent. They appear only on the board and do not create school calendar events.
 
 Moving a card updates the same synced status that colors its calendar entries; **To Do** clears that status. By default, each column sorts by earliest due date first, with undated items last and titles breaking ties. Manual ordering also saves in Chrome Sync, separately for each school and student profile, and is restored when those items appear again. Saved manual ordering takes precedence; new/unordered cards sort by due date after ordered cards. A move through **Move to** appends the card to its destination column. Other open tabs update when Chrome delivers synced changes. The board follows the saved dark-mode preference.
 
@@ -53,7 +59,7 @@ If the panel doesn't appear, or repeated assignments don't behave correctly, ins
 
 ## Privacy and storage
 
-Only Chrome's `storage` permission is requested. Statuses and Kanban ordering use `chrome.storage.sync`: school origins, profile labels, and assignment IDs or fallback titles in keys are sent through Chrome Sync when enabled. The dark-mode preference is also synced. No school records are changed. The selected student profile stays local so viewing a different child on one device does not switch another device's calendar.
+Only Chrome's `storage` permission is requested. Statuses and Kanban ordering use `chrome.storage.sync`: school origins, profile labels, and assignment IDs or fallback titles in keys are sent through Chrome Sync when enabled. Custom card titles, due dates, and summaries and the dark-mode preference are also synced. Each custom card uses one data item, plus separate status and ordering items when set; deleting the card removes all three. No school records are changed. The selected student profile stays local so viewing a different child on one device does not switch another device's calendar.
 
 ### Enable cross-device sync
 

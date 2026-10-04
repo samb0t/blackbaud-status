@@ -23,7 +23,7 @@
     }
     return '';
   }
-  function create({ identify, getRecords, getScope, statuses, saveMove, onOpenChange }) {
+  function create({ identify, getRecords, getScope, statuses, saveMove, saveCustom, onOpenChange }) {
     const host = document.createElement('div');
     host.id = 'bbs-kanban'; host.hidden = true;
     const shadow = host.attachShadow({ mode: 'open' });
@@ -37,14 +37,21 @@
       header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
       h2, h3, p { margin: 0; } h2 { font-size: 22px; } h3 { font-size: 15px; margin-bottom: 12px; }
       #context, #help, .note { color: var(--muted); } #context, #help { margin-top: 8px; }
-      button, select { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--edge); border-radius: 6px; padding: 6px 8px; }
+      button, select, input, textarea { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--edge); border-radius: 6px; padding: 6px 8px; }
+      #editor { max-width: 600px; margin-top: 16px; } #editor input, #editor textarea { display: block; width: 100%; margin: 4px 0 12px; } textarea { resize: vertical; } .actions { display: flex; gap: 8px; margin-top: 8px; } .note { white-space: pre-wrap; }
       button, select { cursor: pointer; } button:disabled, select:disabled { opacity: .55; cursor: default; }
       :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
       #columns { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 12px; overflow-x: auto; padding: 8px 3px 16px; margin-top: 12px; }
       .column { background: var(--column); border: 1px solid var(--edge); border-top: 5px solid var(--accent); border-radius: 8px; padding: 12px; min-height: 260px; }
       .card { position: relative; background: var(--bg); border: 1px solid var(--edge); border-radius: 8px; padding: 12px; margin-bottom: 10px; overflow-wrap: anywhere; }
       .card[draggable=true] { cursor: grab; } .card.dragging { opacity: .45; }
-      .drag-handle { display: block; width: 28px; font-size: 20px; line-height: 24px; color: var(--muted); margin-bottom: 4px; cursor: grab; user-select: none; }
+      .card.custom { border-color: #9474bc; } :host([data-dark]) .card.custom { border-color: #b69bd9; }
+      .card-header { display: flex; align-items: center; gap: 4px; min-height: 32px; padding-right: 24px; margin-bottom: 4px; }
+      .drag-handle { display: block; width: 28px; font-size: 20px; line-height: 24px; color: var(--muted); cursor: grab; user-select: none; }
+      .card-actions { display: flex; gap: 4px; }
+      .card-actions button { display: grid; place-items: center; width: 32px; height: 32px; padding: 6px; border-color: transparent; color: var(--muted); }
+      .card-actions button:hover:not(:disabled) { background: var(--column); border-color: var(--edge); color: var(--text); }
+      .card-actions svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .due-date { display: block; color: var(--muted); font-size: 12px; margin: 8px 0; }
       .due-flag { position: absolute; top: 10px; right: 10px; color: #c62828; line-height: 1; } .due-flag svg { width: 20px; height: 20px; fill: currentColor; }
       :host([data-dark]) .due-flag { color: #ff827b; }
@@ -55,15 +62,23 @@
       .ordering { display: flex; gap: 6px; margin-top: 8px; } .ordering button { width: 32px; height: 32px; padding: 0; font-size: 18px; }
       #message { min-height: 1.5em; margin-top: 8px; } #message[data-error] { color: #a62c23; } :host([data-dark]) #message[data-error] { color: #ffaaa2; }
     </style><section aria-label="Assignment Kanban board">
-      <header><h2 tabindex="-1">Assignment Kanban</h2><button id="back" type="button">Back to calendar</button></header>
+      <header><h2 tabindex="-1">Assignment Kanban</h2><div class="actions"><button id="add" type="button">Add custom card</button><button id="back" type="button">Back to calendar</button></div></header>
       <p id="context"></p><p id="help">Drag cards between columns or above another card to reorder. Use Move to and the ↑/↓ buttons with a keyboard or touch.</p>
-      <p id="message" role="status" aria-live="polite"></p><p id="empty" hidden>No assignments in the loaded calendar range.</p>
+      <form id="editor" hidden aria-label="Custom card">
+        <h3 id="editor-heading">Add custom card</h3>
+        <label for="card-title">Title</label><input id="card-title" required maxlength="200">
+        <label for="card-due">Due date</label><input id="card-due" type="date" required min="1000-01-01" max="9999-12-31">
+        <label for="card-summary">Summary</label><textarea id="card-summary" rows="3" maxlength="1000"></textarea>
+        <div class="actions"><button id="save-card" type="submit">Save card</button><button id="cancel-card" type="button">Cancel</button></div>
+      </form>
+      <p id="message" role="status" aria-live="polite"></p><p id="empty" hidden>No cards to show. Add a custom card to get started.</p>
       <div id="columns"></div>
     </section>`;
     const $ = id => shadow.getElementById(id);
     const labels = Object.fromEntries(model.columns.map(status => [status, status ? statuses[status][0] : 'To Do']));
     let open = false, items = [], events = [], busy = false, dragged = null, calendar = null, toolbar = null, signature = '', dateTimer;
     let renderedDay = dates.today();
+    let editingKey = null, editorScope = null;
     const summaries = new Map();
     function capturePopups(popups, cards = model.cards(events, identify, getRecords(), dates.dueDate)) {
       let changed = false;
@@ -88,9 +103,9 @@
       return changed;
     }
     function collect() {
-      const cards = model.cards(events, identify, getRecords(), dates.dueDate);
-      capturePopups(document.querySelectorAll('.popover .popover-content'), cards);
-      return cards.map(item => ({ ...item, summary: summaries.get(item.key) ?? summary(item.events) }));
+      const cards = model.cards(events, identify, getRecords(), dates.dueDate, model.customCards(getRecords(), location.origin, getScope()));
+      capturePopups(document.querySelectorAll('.popover .popover-content'), cards.filter(item => !item.custom));
+      return cards.map(item => item.custom ? item : ({ ...item, summary: summaries.get(item.key) ?? summary(item.events) }));
     }
     // Capture independently of the calendar's debounced refresh. Include removed
     // popups: Bootstrap may remove them before that refresh ever gets to run.
@@ -189,6 +204,38 @@
       $('message').textContent = text; $('message').toggleAttribute('data-error', error);
     }
     function clearDrop() { shadow.querySelectorAll('.drop-before, .drop-end').forEach(node => node.classList.remove('drop-before', 'drop-end')); }
+    function closeEditor() {
+      $('editor').hidden = true; editingKey = null; editorScope = null;
+    }
+    function editCard(item) {
+      editingKey = item?.key || model.customPrefix(location.origin, getScope()) + crypto.randomUUID();
+      editorScope = getScope();
+      $('editor-heading').textContent = item ? 'Edit custom card' : 'Add custom card';
+      $('card-title').value = item?.title || '';
+      $('card-due').value = item?.dueDate || '';
+      $('card-summary').value = item?.summary || '';
+      $('editor').hidden = false; $('card-title').focus();
+    }
+    async function writeCustom(key, value) {
+      if (busy) return;
+      busy = true; render(); announce('Saving…');
+      try {
+        await saveCustom(key, value);
+        closeEditor(); announce(value ? 'Custom card saved.' : 'Custom card deleted.');
+        $('add').focus();
+      } catch {
+        announce('Could not save the custom card to Chrome Sync. Wait and try again.', true);
+      } finally { busy = false; items = collect(); render(); }
+    }
+    $('add').addEventListener('click', () => editCard());
+    $('cancel-card').addEventListener('click', () => { closeEditor(); $('add').focus(); });
+    $('editor').addEventListener('submit', event => {
+      event.preventDefault();
+      const title = $('card-title').value.trim(), dueDate = dates.parseDate($('card-due').value);
+      if (!title || !dueDate) { announce('Enter a title and valid due date.', true); return; }
+      if (editorScope !== getScope()) return;
+      writeCustom(editingKey, { title, dueDate, summary: $('card-summary').value.trim() });
+    });
     async function move(key, status, beforeKey = null, focusControl = 'move') {
       if (busy) return;
       const ranks = model.placement(items, getRecords(), key, status, beforeKey);
@@ -215,7 +262,9 @@
       const focusControl = focused?.dataset.control;
       const columns = $('columns'); const scroll = columns.scrollLeft;
       columns.replaceChildren();
-      $('context').textContent = `${getScope() || 'Default profile'} · ${items.length} unique assignments · loaded calendar range only`;
+      $('context').textContent = `${getScope() || 'Default profile'} · ${items.filter(item => !item.custom).length} unique assignments in loaded range · ${items.filter(item => item.custom).length} custom cards across all dates`;
+      $('add').disabled = busy;
+      $('editor').querySelectorAll('input, textarea, button').forEach(control => { control.disabled = busy; });
       $('empty').hidden = items.length !== 0;
       for (const status of model.columns) {
         const columnItems = items.filter(item => item.status === status);
@@ -237,7 +286,8 @@
         });
         columnItems.forEach((item, index) => {
           const card = document.createElement('article'); card.className = 'card'; card.dataset.key = item.key; card.draggable = !busy;
-          const handle = document.createElement('span'); handle.className = 'drag-handle'; handle.textContent = '⠿'; handle.title = 'Drag to move'; handle.setAttribute('aria-hidden', 'true'); handle.draggable = !busy; card.append(handle);
+          const cardHeader = document.createElement('div'); cardHeader.className = 'card-header'; card.append(cardHeader);
+          const handle = document.createElement('span'); handle.className = 'drag-handle'; handle.textContent = '⠿'; handle.title = item.custom ? 'Custom card · Drag to move' : 'Drag to move'; handle.setAttribute('aria-hidden', 'true'); handle.draggable = !busy; cardHeader.append(handle);
           if (dates.isDueSoon(item.dueDate)) {
             card.append(dates.createFlag('due-flag'));
           }
@@ -245,6 +295,23 @@
           const title = document.createElement(url ? 'a' : 'span'); title.className = 'title'; title.textContent = item.title;
           if (url) { title.href = url; title.target = '_blank'; title.rel = 'noopener'; title.title = 'Open assignment in a new tab'; title.draggable = false; }
           card.append(title);
+          if (item.custom) {
+            card.classList.add('custom'); card.setAttribute('aria-label', `Custom card: ${item.title}`);
+            const actions = document.createElement('div'); actions.className = 'card-actions';
+            for (const action of ['Edit', 'Delete']) {
+              const button = document.createElement('button'); button.type = 'button'; button.disabled = busy; button.dataset.control = action.toLowerCase(); button.title = `${action} custom card`;
+              button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${action === 'Edit'
+                ? '<path d="m16 3 5 5-12 12-6 1 1-6L16 3Z M13 6l5 5"/>'
+                : '<path d="M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7"/>'}</svg>`;
+              button.setAttribute('aria-label', `${action} ${item.title}`);
+              button.addEventListener('click', () => {
+                if (action === 'Edit') editCard(item);
+                else if (window.confirm(`Delete custom card “${item.title}”?`)) writeCustom(item.key, null);
+              });
+              actions.append(button);
+            }
+            cardHeader.append(actions);
+          }
           const due = document.createElement(item.dueDate ? 'time' : 'span'); due.className = 'due-date';
           if (item.dueDate) { due.dateTime = item.dueDate; due.textContent = 'Due ' + dates.formatDate(item.dueDate); }
           else due.textContent = 'Due date unavailable';
@@ -285,13 +352,18 @@
     function refreshDay() { if (open && renderedDay !== dates.today()) render(); }
     document.addEventListener('visibilitychange', refreshDay);
     window.addEventListener('focus', refreshDay);
-    shadow.addEventListener('keydown', event => { if (event.key === 'Escape' && !dragged) setOpen(false); });
+    shadow.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || dragged) return;
+      if (!$('editor').hidden) { if (!busy) { closeEditor(); $('add').focus(); } }
+      else setOpen(false);
+    });
     return {
       get isOpen() { return open; },
       get isAvailable() { return isGridView(); },
       setOpen,
       applyTheme(dark) { host.toggleAttribute('data-dark', dark); },
       update(nextEvents) {
+        if (editorScope !== null && editorScope !== getScope()) closeEditor();
         events = nextEvents;
         items = collect();
         mount();

@@ -82,6 +82,12 @@
   }
   function calendarDate(event) {
     // A segment continuing beyond the displayed range cannot establish a deadline.
+    // Middle segments have neither start nor end markers. Recognize the grid
+    // itself so their visible right edge is never mistaken for the actual end.
+    const modernGrid = event.matches('.fc-daygrid-event, .fc-timegrid-event') || event.closest('.fc-daygrid-day, .fc-daygrid-event-harness, .fc-timegrid');
+    const legacyGrid = event.closest('.fc-content-skeleton');
+    if (modernGrid && !event.classList.contains('fc-event-end')) return null;
+    if (legacyGrid && !event.classList.contains('fc-end')) return null;
     if ((event.classList.contains('fc-start') || event.classList.contains('fc-end')) && !event.classList.contains('fc-end')) return null;
     if ((event.classList.contains('fc-event-start') || event.classList.contains('fc-event-end')) && !event.classList.contains('fc-event-end')) return null;
     const ownDate = parseDate(event.getAttribute('data-date'));

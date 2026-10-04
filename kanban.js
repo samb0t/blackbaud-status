@@ -134,6 +134,12 @@
     // Capture independently of the calendar's debounced refresh. Include removed
     // popups: Bootstrap may remove them before that refresh ever gets to run.
     new MutationObserver(mutations => {
+      const relevant = mutations.some(mutation => {
+        const target = mutation.target.nodeType === Node.ELEMENT_NODE ? mutation.target : mutation.target.parentElement;
+        return target?.closest('.popover') || [...mutation.addedNodes, ...mutation.removedNodes].some(node =>
+          node.nodeType === Node.ELEMENT_NODE && (node.matches('.popover, .popover-content') || node.querySelector('.popover, .popover-content')));
+      });
+      if (!relevant) return;
       const popups = new Set(document.querySelectorAll('.popover .popover-content'));
       for (const mutation of mutations) {
         for (const node of [...mutation.addedNodes, ...mutation.removedNodes]) {
@@ -231,6 +237,9 @@
     function closeEditor() {
       $('editor').hidden = true; editingKey = null; editorScope = null;
     }
+    function focusArchive() {
+      (shadow.querySelector('.card button:not(:disabled)') || $('archive')).focus();
+    }
     function editCard(item) {
       editingKey = item?.key || model.customPrefix(location.origin, getScope()) + crypto.randomUUID();
       editorScope = getScope();
@@ -246,10 +255,15 @@
       try {
         await saveCustom(key, value);
         closeEditor(); announce(value ? 'Custom card saved.' : 'Custom card deleted.');
-        $('add').focus();
       } catch {
         announce('Could not save the custom card to Chrome Sync. Wait and try again.', true);
-      } finally { busy = false; items = collect(); render(); }
+      } finally {
+        busy = false; items = collect(); render();
+        if ($('editor').hidden) {
+          if (showArchived) focusArchive();
+          else $('add').focus();
+        }
+      }
     }
     $('add').addEventListener('click', () => editCard());
     $('cancel-card').addEventListener('click', () => { closeEditor(); $('add').focus(); });
@@ -275,7 +289,8 @@
         busy = false; items = collect(); render();
         const card = [...shadow.querySelectorAll('.card')].find(node => node.dataset.key === key);
         const control = card?.querySelector(`[data-control="${focusControl}"]`);
-        (control?.disabled ? card?.querySelector('select') : control)?.focus();
+        if (showArchived) focusArchive();
+        else (control?.disabled ? card?.querySelector('select') : control)?.focus();
       }
     }
     function render() {

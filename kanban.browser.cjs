@@ -34,6 +34,17 @@ const { join } = require('node:path');
       const root = document.querySelector('#bbs-kanban')?.shadowRoot;
       return root && !root.querySelector('select:disabled') && root.querySelector('#message').textContent !== 'Saving…';
     });
+    // A short, narrow viewport must scroll the panel rather than clip controls.
+    await page.setViewportSize({ width: 320, height: 240 });
+    await panel.locator('#scope').focus();
+    const panelBounds = await panel.locator('section').boundingBox();
+    assert.ok(panelBounds.x >= 0 && panelBounds.y >= 0 && panelBounds.x + panelBounds.width <= 320 && panelBounds.y + panelBounds.height <= 240);
+    assert.equal(await panel.locator('section').evaluate(node => node.scrollHeight > node.clientHeight), true);
+    assert.equal(await panel.locator('#scope').evaluate(node => {
+      const field = node.getBoundingClientRect(), panel = node.closest('section').getBoundingClientRect();
+      return field.top >= panel.top && field.bottom <= panel.bottom;
+    }), true);
+    await page.setViewportSize({ width: 1600, height: 1400 });
     await panel.locator('#collapse').click();
     assert.equal(await panel.locator('#body').isVisible(), false);
     for (const id of ['theme', 'board']) {
@@ -72,11 +83,17 @@ const { join } = require('node:path');
     assert.equal(await page.locator('.bbs-due-flag').count(), 3);
     await page.clock.setFixedTime(new Date(2026, 9, 2, 12));
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.evaluate(() => {
+      const hint = document.createElement('span'); hint.id = 'school-event-hint'; hint.textContent = 'School event details'; document.body.append(hint);
+      document.querySelectorAll('[data-assignment-id="101"]').forEach(node => node.setAttribute('aria-describedby', hint.id));
+    });
     await project.locator('select').selectOption('progress'); await settled();
     assert.equal(await project.locator('time').getAttribute('datetime'), '2026-10-06');
     assert.equal(await project.locator('.due-flag').count(), 1);
     assert.equal(await column('progress').locator('.card').count(), 1);
     assert.equal(await page.locator('[data-assignment-id="101"][data-bbs-status="progress"]').count(), 2);
+    assert.equal(await page.locator('[data-assignment-id="101"]').first().getAttribute('aria-describedby'), 'school-event-hint bbs-status-description-progress');
+    assert.equal(await page.locator('#bbs-status-description-progress').textContent(), 'Personal status: In progress.');
     assert.equal(await page.locator('[data-assignment-id="101"] .bbs-due-flag path').first().evaluate(node => getComputedStyle(node).fill), 'rgb(198, 40, 40)');
 
     // The menu and actual browser drag/drop both update the calendar's status.
@@ -85,6 +102,7 @@ const { join } = require('node:path');
     assert.equal(await page.locator('[data-assignment-id="101"] .bbs-due-flag path').first().evaluate(node => getComputedStyle(node).fill), 'rgb(198, 40, 40)');
     await project.locator('select').selectOption(''); await settled();
     assert.equal(await page.locator('[data-assignment-id="101"][data-bbs-status]').count(), 0);
+    assert.equal(await page.locator('[data-assignment-id="101"]').first().getAttribute('aria-describedby'), 'school-event-hint');
     await project.getByRole('button', { name: /Move .* up in/ }).click(); await settled();
     assert.equal((await titles(''))[2], 'Sample Project (Student A)');
     await project.locator('.drag-handle').dragTo(column('').locator('.card').first().locator('.drag-handle')); await settled();
@@ -309,12 +327,19 @@ const { join } = require('node:path');
     assert.match(await custom.locator('.note').last().textContent(), /Permanently deletes/);
     await custom.getByRole('button', { name: 'Restore to To do' }).click(); await settled();
     assert.equal(await custom.count(), 0);
+    assert.equal(await board.locator('#archive').evaluate(node => node.getRootNode().activeElement === node), true);
     await board.locator('#archive').click(); await custom.waitFor();
     assert.equal(await custom.locator('select').inputValue(), '');
     assert.equal(await page.evaluate(key => saved[SchoolStatusKanbanModel.dataKey(key)].completedAt, customKey), undefined);
+    await custom.locator('select').selectOption('done'); await settled();
+    await page.clock.setFixedTime(new Date(completedAt + 28 * 86400000));
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await custom.waitFor({ state: 'detached' });
+    await board.locator('#archive').click(); await custom.waitFor();
     page.once('dialog', dialog => dialog.accept());
     await custom.getByRole('button', { name: 'Delete Personal project', exact: true }).click(); await settled();
     assert.equal(await custom.count(), 0);
+    assert.equal(await board.locator('#archive').evaluate(node => node.getRootNode().activeElement === node), true);
     assert.equal(await page.evaluate(key => [key, SchoolStatusKanbanModel.dataKey(key), SchoolStatusKanbanModel.orderKey(key)].some(key => key in saved), customKey), false);
     await page.evaluate(({ key, completedAt }) => chrome.storage.sync.set({
       [key]: 'done', [SchoolStatusKanbanModel.orderKey(key)]: 1024,
@@ -324,6 +349,28 @@ const { join } = require('node:path');
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
     await page.waitForFunction(key => !Object.hasOwn(saved, SchoolStatusKanbanModel.dataKey(key)), customKey);
     assert.equal(await page.evaluate(key => [key, SchoolStatusKanbanModel.orderKey(key)].some(key => key in saved), customKey), false);
+    // Large calendar changes finish across frames; unrelated page edits do not rescan.
+    await page.evaluate(async () => {
+      const fragment = document.createDocumentFragment(), values = {};
+      for (let index = 0; index < 65; index++) {
+        const event = document.createElement('a'); event.className = 'fc-event';
+        event.dataset.assignmentId = `batch-${index}`; event.textContent = `Batch assignment ${index}`;
+        values[SchoolStatusIdentity.identify(event, location.origin, '').key] = 'progress';
+        fragment.append(event);
+      }
+      await chrome.storage.sync.set(values);
+      document.querySelector('.fc-view-container').append(fragment);
+    });
+    await page.waitForFunction(() => document.querySelectorAll('[data-assignment-id^="batch-"][aria-describedby="bbs-status-description-progress"]').length === 65);
+    await page.waitForTimeout(200);
+    await page.evaluate(() => {
+      const identify = SchoolStatusIdentity.identify;
+      globalThis.identityCalls = 0;
+      SchoolStatusIdentity.identify = (...args) => { identityCalls++; return identify(...args); };
+      const unrelated = document.createElement('div'); unrelated.id = 'unrelated'; unrelated.textContent = 'Unrelated update'; document.body.append(unrelated);
+    });
+    await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(() => identityCalls), 0);
     assert.deepEqual(errors, []);
     console.log('Kanban browser checks passed: toolbar icon, due dates/flags, date rollover, view switching, deduplication, drag/drop, menus, ordering, reload, sync, failures, profiles, dark mode, range updates, and custom card create/edit/delete/persistence.');
   } finally {

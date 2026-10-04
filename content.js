@@ -9,7 +9,7 @@
   shadow.innerHTML = `<style>
     :host { all: initial; position: fixed; right: 18px; bottom: 18px; z-index: 2147483647; font: 14px/1.45 system-ui, sans-serif; color: #182636; }
     :host([hidden]) { display: none !important; }
-    * { box-sizing: border-box; } section { width: 290px; border: 1px solid #cbd5df; background: white; border-radius: 14px; padding: 16px; box-shadow: 0 8px 35px #18263630; }
+    * { box-sizing: border-box; } section { width: min(290px, calc(100vw - 36px)); max-height: calc(100dvh - 36px); overflow: auto; border: 1px solid #cbd5df; background: white; border-radius: 14px; padding: 16px; box-shadow: 0 8px 35px #18263630; } header { flex-wrap: wrap; }
     header { display: flex; align-items: center; justify-content: space-between; gap: 12px; } strong { font-size: 16px; } button, input { font: inherit; } button { cursor: pointer; border: 1px solid #b9c7d4; border-radius: 7px; padding: 8px 10px; background: #f5f8fb; color: #182636; } button:hover { filter: brightness(.96); } button:focus-visible, input:focus-visible { outline: 3px solid #276ac3; outline-offset: 2px; }
     #toggle { width: 100%; margin-top: 12px; } #toggle[aria-pressed=true] { background: #163d68; color: white; } p { margin: 10px 0; } small { color: #536479; display: block; margin-top: 8px; } label { display: block; margin-top: 12px; } input { width: 100%; padding: 7px; border: 1px solid #b9c7d4; border-radius: 6px; } #choices { display: grid; gap: 6px; } #selection { border-top: 1px solid #dce3e9; margin-top: 12px; padding-top: 12px; } #title { overflow-wrap: anywhere; font-weight: 600; } #message { color: #9b3028; } [hidden] { display: none !important; } #legend { font-size: 12px; } #legend span { display: inline-block; padding: 2px 5px; border-radius: 4px; margin: 3px 2px 0 0; }
     :host { color-scheme: light; }
@@ -45,6 +45,28 @@
   let records = {}, scope = '', marking = false, selected = null, pending = false;
   const scopeKey = 'bbs-profile:' + location.origin;
   const themeKey = 'bbs-setting:dark-mode';
+  // Keep descriptions outside event markup so title-based identity is unaffected.
+  const descriptions = document.createElement('div');
+  descriptions.id = 'bbs-status-descriptions';
+  descriptions.className = 'bbs-visually-hidden';
+  const descriptionIds = new Set();
+  for (const [status, [label]] of Object.entries(statuses)) {
+    const description = document.createElement('span');
+    description.id = `bbs-status-description-${status}`;
+    description.textContent = `Personal status: ${label}.`;
+    descriptionIds.add(description.id); descriptions.append(description);
+  }
+  document.documentElement.append(descriptions);
+  function describeStatus(event, status) {
+    const previous = event.getAttribute('aria-describedby') || '';
+    const ids = previous.split(/\s+/).filter(id => id && !descriptionIds.has(id));
+    if (Object.hasOwn(statuses, status)) ids.push(`bbs-status-description-${status}`);
+    const next = ids.join(' ');
+    if (next !== previous) {
+      if (next) event.setAttribute('aria-describedby', next);
+      else event.removeAttribute('aria-describedby');
+    }
+  }
   const kanban = SchoolStatusKanban.create({
     identify: event => identify(event), getRecords: () => records, getScope: () => scope, statuses,
     async saveCustom(key, value) {
@@ -110,24 +132,34 @@
   window.addEventListener('popstate', applyTheme);
   const identify = event => SchoolStatusIdentity.identify(event, location.origin, scope);
   function closeSelection() { selected = null; $('selection').hidden = true; }
+  let refreshFrame;
   function refresh() {
+    cancelAnimationFrame(refreshFrame);
     applyTheme();
     const events = [...document.querySelectorAll(selector)];
     host.hidden = events.length === 0 && !document.querySelector('.fc, #calendar') && !kanban.isOpen;
-    $('count').textContent = `${events.length} calendar items found. ${marking ? 'Click an item to set its status. Esc stops marking.' : 'Normal calendar clicks are enabled.'}`;
-    for (const event of events) {
-      const identity = identify(event);
-      const status = identity && records[identity.key];
-      if (Object.hasOwn(statuses, status)) {
-        if (event.getAttribute('data-bbs-status') !== status) event.setAttribute('data-bbs-status', status);
-      } else if (event.hasAttribute('data-bbs-status')) event.removeAttribute('data-bbs-status');
-      event.classList.toggle('bbs-marking', marking);
+    const count = `${events.length} calendar items found. ${marking ? 'Click an item to set its status. Esc stops marking.' : 'Normal calendar clicks are enabled.'}`;
+    if ($('count').textContent !== count) $('count').textContent = count;
+    const cards = SchoolStatusKanbanModel.cards(events, identify, records);
+    function* updates() {
+      for (const item of cards) {
+        const flagged = SchoolStatusCalendarDates.isDueSoon(SchoolStatusCalendarDates.dueDate(item.events));
+        for (const event of item.events) yield { event, key: item.key, flagged };
+      }
     }
-    kanban.update(events);
-    $('board').hidden = !kanban.isAvailable;
-    for (const item of SchoolStatusKanbanModel.cards(events, identify, records)) {
-      const flagged = SchoolStatusCalendarDates.isDueSoon(SchoolStatusCalendarDates.dueDate(item.events));
-      for (const event of item.events) {
+    const queue = updates();
+    function paintBatch() {
+      for (let count = 0; count < 20; count++) {
+        const next = queue.next();
+        if (next.done) return;
+        const { event, key, flagged } = next.value;
+        if (!event.isConnected) continue;
+        const status = records[key];
+        if (Object.hasOwn(statuses, status)) {
+          if (event.getAttribute('data-bbs-status') !== status) event.setAttribute('data-bbs-status', status);
+        } else if (event.hasAttribute('data-bbs-status')) event.removeAttribute('data-bbs-status');
+        event.classList.toggle('bbs-marking', marking);
+        describeStatus(event, status);
         const flag = event.querySelector('.bbs-due-flag');
         if (!flagged) {
           flag?.parentElement.classList.remove('bbs-flagged-title');
@@ -139,7 +171,11 @@
           target.append(SchoolStatusCalendarDates.createFlag('bbs-due-flag'));
         }
       }
+      refreshFrame = requestAnimationFrame(paintBatch);
     }
+    paintBatch();
+    kanban.update(events);
+    $('board').hidden = !kanban.isAvailable;
   }
   function setMarking(value) {
     marking = value;
@@ -252,7 +288,23 @@
     document.addEventListener('visibilitychange', refreshDay);
     let timer;
     new MutationObserver(mutations => {
-      if (!mutations.some(m => m.type !== 'attributes' || m.attributeName !== 'class' || m.oldValue?.split(/\s+/).filter(value => value !== 'bbs-marking').join(' ') !== [...m.target.classList].filter(value => value !== 'bbs-marking').join(' '))) return;
+      const relevant = mutations.filter(m => {
+        const target = m.target.nodeType === Node.ELEMENT_NODE ? m.target : m.target.parentElement;
+        const owned = node => node.nodeType === Node.ELEMENT_NODE && node.matches('#bbs-kanban, .bbs-kanban-tab, .bbs-due-flag');
+        if (target?.closest('#bbs-kanban, .bbs-kanban-tab, .bbs-due-flag')) return false;
+        if (m.type === 'childList' && [...m.addedNodes, ...m.removedNodes].every(owned)) return false;
+        if (m.attributeName === 'aria-describedby') {
+          const nativeIds = value => (value || '').split(/\s+/).filter(id => id && !descriptionIds.has(id)).join(' ');
+          if (nativeIds(m.oldValue) === nativeIds(target.getAttribute('aria-describedby'))) return false;
+        }
+        const calendarSelector = '.fc, #calendar, .popover, .fc-toolbar, .fc-header-toolbar, .fc-header, .fc-view-container, .fc-view-harness';
+        return target?.closest(`${calendarSelector}, ${selector}`) || (m.type === 'attributes' && target?.querySelector(calendarSelector)) ||
+          [...m.addedNodes, ...m.removedNodes].some(node => node.nodeType === Node.ELEMENT_NODE &&
+            (node.matches(`${calendarSelector}, ${selector}`) || node.querySelector(`${calendarSelector}, ${selector}`)));
+      });
+      mutations = relevant;
+      const nativeClasses = value => (value || '').split(/\s+/).filter(value => value && !['bbs-marking', 'bbs-flagged-title'].includes(value)).join(' ');
+      if (!mutations.some(m => m.type !== 'attributes' || m.attributeName !== 'class' || nativeClasses(m.oldValue) !== nativeClasses(m.target.getAttribute('class')))) return;
       clearTimeout(timer); timer = setTimeout(refresh, 100);
     }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'hidden', 'href', 'aria-describedby', 'data-event-id', 'data-eventid', 'data-assignment-id', 'data-assignmentid', 'data-summary', 'data-description', ...SchoolStatusCalendarDates.attributes] });
   }

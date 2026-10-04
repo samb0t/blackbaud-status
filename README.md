@@ -14,6 +14,8 @@ A dependency-free Chrome Manifest V3 extension for personal calendar colors, dar
 
 Colors persist across reloads and month changes. Automatic date-based red flags appear on calendar events and Kanban cards. The former manual Due soon status is no longer used; previously labeled items appear without a personal status (To do in Kanban). Switching the profile changes the set of personal statuses. Use distinct profile names for different children, especially if the site doesn't include a child name in event titles.
 
+Calendar items expose personal statuses as accessible descriptions while preserving the school's existing descriptions and event names. The status panel fits narrow or short viewports and scrolls internally so its controls remain reachable when zoomed in. Large calendar updates paint in batches, and unrelated page changes do not trigger calendar rescans.
+
 Click the **Dark mode** moon icon beside the minimize button in the **My statuses** header to toggle a dark appearance for the entire calendar page, including navigation, calendar cells, controls, and the status panel. The adjacent Kanban icon switches to a calendar icon while the board is open. Both controls have tooltips and accessible labels and remain available when the panel is minimized. Light mode is the default. The preference is saved alongside statuses in Chrome Sync, restored on reload, and applied to other open calendar tabs when it changes. It is shared across schools and student profiles. Status colors stay recognizable in both themes. Turning dark mode off restores the site's original appearance, and newly loaded calendar content automatically follows the selected theme.
 
 Dark mode applies only on the `#calendar` route and its subroutes. Navigating to Resources or another page restores the site's normal theme; returning to Calendar reapplies your saved preference. The top site bars retain their native blue/yellow backgrounds and active-tab styling, with dark text for readable navigation labels and user information. Navigation dropdowns use a light background with dark text.
@@ -40,6 +42,8 @@ Custom cards have a subtle **purple border**. Use the **pencil** icon beside the
 Custom cards automatically **archive after 14 days in Done**, measured from when they entered that column. **Show archived** opens the current profile's archive, where each card shows its permanent deletion date and offers **Restore to To do** and the trash-can icon. Archived cards are **permanently deleted after 90 additional days**. Moving a card out of Done cancels its timer; completing it again starts a new timer. Editing or reordering a completed card does not reset the timer. Existing Done custom cards without a completion timestamp start their timer when this update first loads.
 
 Retention uses elapsed days, not school days or due dates. Cleanup runs when a calendar page loads, gains focus, and periodically while it is open; expired data may remain in storage until the next visit. Deletion removes the card's details, status, and ordering. The policy bounds retention time, though Chrome Sync's storage limits still apply if many cards are created within that time.
+
+After restoring or deleting an archived card, keyboard focus moves to a remaining archived card's control, or to the archive toggle when the archive is empty.
 
 Moving a card updates the same synced status that colors its calendar entries; **To do** clears that status. By default, each column sorts by earliest due date first, with undated items last and titles breaking ties. Manual ordering also saves in Chrome Sync, separately for each school and student profile, and is restored when those items appear again. Saved manual ordering takes precedence; new/unordered cards sort by due date after ordered cards. A move through **Move to** appends the card to its destination column. Other open tabs update when Chrome delivers synced changes. The board follows the saved dark-mode preference.
 
@@ -93,6 +97,8 @@ node kanban.browser.cjs
 ```
 
 These checks use the demo with simulated Chrome storage, reload persistence, and a fixed clock to exercise the toolbar icon, due-date extraction and flags, date rollover, drag/drop, menu moves, ordering, syncing, save failures, profile changes, dark mode, and range/view changes. The extension itself needs no npm dependencies. Fixture checks do not replace testing on the real site.
+
+Regression checks also cover archive focus recovery, panel scrolling in a 320×240 viewport, accessible status descriptions alongside native descriptions, large calendar updates, and ignoring unrelated page mutations.
 
 ### Visual theme checks
 

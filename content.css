@@ -1,4 +1,5 @@
 [data-bbs-kanban-hidden] { display: none !important; }
+.bbs-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip-path: inset(50%) !important; white-space: nowrap !important; border: 0 !important; }
 .bbs-kanban-tab { display: inline-flex !important; align-items: center; justify-content: center; vertical-align: middle; width: 32px !important; min-width: 0 !important; padding: 5px !important; margin-left: 0 !important; line-height: 1 !important; cursor: pointer; }
 .bbs-kanban-tab svg { display: block; width: 18px; height: 18px; fill: currentColor; pointer-events: none; }
 .bbs-kanban-tab[aria-pressed="true"] { background: #24517d !important; color: white !important; }

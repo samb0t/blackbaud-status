@@ -2,7 +2,7 @@
   'use strict';
   if (document.getElementById('bbs-personal-status')) return;
   const selector = '.fc-event, .fc-list-event, .fc-list-item';
-  const statuses = { progress: ['In progress', '#ffe49a'], done: ['Done', '#bce8c7'], ignore: ['In class / don’t worry', '#d7dce2'] };
+  const statuses = { progress: ['In progress', '#ffe49a'], done: ['Done', '#bce8c7'], ignore: ['In class', '#d7dce2'] };
   const host = document.createElement('div');
   host.id = 'bbs-personal-status';
   const shadow = host.attachShadow({ mode: 'open' });
@@ -35,7 +35,7 @@
     </div></header>
     <div id="body"><button id="toggle" aria-pressed="false">Start marking</button>
     <small id="count" role="status"></small>
-    <div id="legend"><span style="background:#ffe49a">In progress</span><span style="background:#bce8c7">Done</span><span style="background:#d7dce2">In class / don’t worry</span></div>
+    <div id="legend"><span style="background:#ffe49a">In progress</span><span style="background:#bce8c7">Done</span><span style="background:#d7dce2">In class</span></div>
     <label for="scope">Student / calendar profile</label><input id="scope" maxlength="100" placeholder="e.g. Student A" />
     <small>Use a different profile for each child. Statuses sync through Chrome when Chrome Sync is enabled. Red flags mark items due today or within 2 school days.</small>
     <div id="selection" hidden><p id="title"></p><small id="identity"></small><div id="choices"></div><button id="cancel" style="margin-top:8px">Cancel</button></div>
@@ -53,6 +53,7 @@
       const model = SchoolStatusKanbanModel;
       try {
         if (value) {
+          value = { ...records[model.dataKey(key)], ...value };
           await chrome.storage.sync.set({ [model.dataKey(key)]: value });
           records[model.dataKey(key)] = value;
         } else {
@@ -70,9 +71,15 @@
       pending = true;
       try {
         const values = { ...ranks, ...(status ? { [key]: status } : {}) };
+        const model = SchoolStatusKanbanModel, data = model.dataKey(key);
+        const custom = key.startsWith('bbs-custom:') && records[data];
+        if (custom) {
+          values[data] = model.customMove(custom, records[key], status);
+          values[key] = status;
+        }
         await chrome.storage.sync.set(values);
         Object.assign(records, values);
-        if (!status) { await chrome.storage.sync.remove(key); delete records[key]; }
+        if (!status && !custom) { await chrome.storage.sync.remove(key); delete records[key]; }
       } catch (error) {
         // Clearing a status and saving ordering are separate storage operations.
         // Re-read after partial failure so the board reflects what actually saved.
@@ -218,6 +225,22 @@
       $('scope').value = scope;
     } catch { $('message').textContent = 'Chrome storage unavailable. Reload the page to retry.'; $('toggle').disabled = true; }
     document.documentElement.append(host);
+    async function cleanupCustomCards() {
+      if (pending || !document.querySelector('.fc, #calendar')) return;
+      const { values, remove } = SchoolStatusKanbanModel.cleanup(records);
+      if (!Object.keys(values).length && !remove.length) return;
+      pending = true;
+      try {
+        if (Object.keys(values).length) { await chrome.storage.sync.set(values); Object.assign(records, values); }
+        if (remove.length) { await chrome.storage.sync.remove(remove); remove.forEach(key => delete records[key]); }
+      } catch {
+        try { records = await chrome.storage.sync.get(null); } catch { /* Keep the last known data. */ }
+        $('message').textContent = 'Archived card cleanup could not be saved. It will retry automatically.';
+      } finally { pending = false; refresh(); }
+    }
+    await cleanupCustomCards();
+    setInterval(cleanupCustomCards, 60000);
+    window.addEventListener('focus', cleanupCustomCards);
     refresh();
     let renderedDay = SchoolStatusCalendarDates.today();
     const refreshDay = () => {

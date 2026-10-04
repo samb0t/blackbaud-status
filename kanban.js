@@ -3,6 +3,12 @@
   'use strict';
   const model = SchoolStatusKanbanModel;
   const dates = SchoolStatusCalendarDates;
+  const toolbarIcon = name => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${{
+    archive: '<path d="M3 3h18v4H3z M5 7v14h14V7 M9 11h6"/>',
+    add: '<path d="M12 5v14 M5 12h14"/>',
+    calendar: '<path d="M4 5h16v16H4z M8 3v4 M16 3v4 M4 10h16"/>',
+    board: '<rect x="3" y="4" width="4" height="16" rx="1"/><rect x="10" y="4" width="4" height="10" rx="1"/><rect x="17" y="4" width="4" height="13" rx="1"/>'
+  }[name]}</svg>`;
   const normalize = value => (value || '').replace(/\s+/g, ' ').trim();
   const truncate = text => text.length > 200 ? text.slice(0, 197).trimEnd() + '...' : text;
   function summary(events) {
@@ -36,22 +42,27 @@
       section { background: var(--bg); color: var(--text); padding: 18px; border: 1px solid var(--edge); border-radius: 10px; }
       header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
       h2, h3, p { margin: 0; } h2 { font-size: 22px; } h3 { font-size: 15px; margin-bottom: 12px; }
-      #context, #help, .note { color: var(--muted); } #context, #help { margin-top: 8px; }
+      #context, .note { color: var(--muted); } #context { margin-top: 8px; }
+      #help { background: var(--bg); color: var(--text); border: 1px solid var(--edge); border-radius: 10px; padding: 20px; width: min(560px, calc(100vw - 32px)); max-height: 80vh; overflow: auto; font: inherit; }
+      #help::backdrop { background: #0007; } #help p { margin: 12px 0; } #help h2 { margin-bottom: 16px; }
       button, select, input, textarea { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--edge); border-radius: 6px; padding: 6px 8px; }
       #editor { max-width: 600px; margin-top: 16px; } #editor input, #editor textarea { display: block; width: 100%; margin: 4px 0 12px; } textarea { resize: vertical; } .actions { display: flex; gap: 8px; margin-top: 8px; } .note { white-space: pre-wrap; }
       button, select { cursor: pointer; } button:disabled, select:disabled { opacity: .55; cursor: default; }
       :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
       #columns { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 12px; overflow-x: auto; padding: 8px 3px 16px; margin-top: 12px; }
+      #columns.archived { grid-template-columns: minmax(220px, 600px); }
       .column { background: var(--column); border: 1px solid var(--edge); border-top: 5px solid var(--accent); border-radius: 8px; padding: 12px; min-height: 260px; }
       .card { position: relative; background: var(--bg); border: 1px solid var(--edge); border-radius: 8px; padding: 12px; margin-bottom: 10px; overflow-wrap: anywhere; }
       .card[draggable=true] { cursor: grab; } .card.dragging { opacity: .45; }
       .card.custom { border-color: #9474bc; } :host([data-dark]) .card.custom { border-color: #b69bd9; }
       .card-header { display: flex; align-items: center; gap: 4px; min-height: 32px; padding-right: 24px; margin-bottom: 4px; }
       .drag-handle { display: block; width: 28px; font-size: 20px; line-height: 24px; color: var(--muted); cursor: grab; user-select: none; }
-      .card-actions { display: flex; gap: 4px; }
+      .card-actions { display: flex; gap: 4px; margin-left: auto; }
       .card-actions button { display: grid; place-items: center; width: 32px; height: 32px; padding: 6px; border-color: transparent; color: var(--muted); }
       .card-actions button:hover:not(:disabled) { background: var(--column); border-color: var(--edge); color: var(--text); }
-      .card-actions svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .card-actions svg, header .actions svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      header .actions button { display: grid; place-items: center; width: 36px; height: 36px; padding: 8px; }
+      header .actions button:hover:not(:disabled) { background: var(--column); }
       .due-date { display: block; color: var(--muted); font-size: 12px; margin: 8px 0; }
       .due-flag { position: absolute; top: 10px; right: 10px; color: #c62828; line-height: 1; } .due-flag svg { width: 20px; height: 20px; fill: currentColor; }
       :host([data-dark]) .due-flag { color: #ff827b; }
@@ -59,11 +70,24 @@
       .title { display: block; font-weight: 600; color: var(--text); margin-bottom: 8px; } a.title { color: var(--focus); }
       .note { display: block; font-size: 12px; margin: 8px 0; }
       label { display: block; font-size: 12px; margin-top: 12px; } select { display: block; width: 100%; margin-top: 4px; }
+      .select-wrap { display: block; position: relative; }
+      .select-wrap select { appearance: none; padding-right: 36px; }
+      .select-wrap::after { content: ''; position: absolute; right: 14px; top: 50%; width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-70%) rotate(45deg); pointer-events: none; }
       .ordering { display: flex; gap: 6px; margin-top: 8px; } .ordering button { width: 32px; height: 32px; padding: 0; font-size: 18px; }
       #message { min-height: 1.5em; margin-top: 8px; } #message[data-error] { color: #a62c23; } :host([data-dark]) #message[data-error] { color: #ffaaa2; }
     </style><section aria-label="Assignment Kanban board">
-      <header><h2 tabindex="-1">Assignment Kanban</h2><div class="actions"><button id="add" type="button">Add custom card</button><button id="back" type="button">Back to calendar</button></div></header>
-      <p id="context"></p><p id="help">Drag cards between columns or above another card to reorder. Use Move to and the ↑/↓ buttons with a keyboard or touch.</p>
+      <header><h2 tabindex="-1">Assignment Kanban</h2><div class="actions"><button id="add" type="button" aria-label="Add custom card" title="Add custom card">${toolbarIcon('add')}</button><button id="back" type="button" aria-label="Back to calendar" title="Back to calendar">${toolbarIcon('calendar')}</button><button id="archive" type="button" aria-pressed="false" aria-label="Show archived" title="Show archived">${toolbarIcon('archive')}</button><button id="help-button" type="button" aria-label="Kanban help" title="Kanban help" aria-haspopup="dialog" aria-controls="help">?</button></div></header>
+      <dialog id="help" aria-labelledby="help-heading">
+        <h2 id="help-heading">Kanban help</h2>
+        <p><strong>Organize cards:</strong> Drag the grab handle between columns or above another card to reorder. Use Move to and the ↑/↓ buttons with a keyboard or touch.</p>
+        <p><strong>Custom cards:</strong> Use the + button to add a title, due date, and optional summary. A purple border identifies custom cards. The pencil edits a card; the trash can permanently deletes it after confirmation. Cards sync for the current school and profile and remain across calendar ranges.</p>
+        <p><strong>Archive:</strong> Custom cards archive after 14 days in Done and are permanently deleted after 90 more days. The archive-box button shows archived cards and their deletion dates. Restore to To do cancels the timer; completing the card again starts a new one. Editing or reordering does not reset the timer. The board icon returns to active cards.</p>
+        <p><strong>Assignments:</strong> Only assignments in the loaded calendar range appear. Linked titles open assignments in a new tab. Open an assignment’s calendar popup to capture an unavailable summary.</p>
+        <p><strong>Due-date flags:</strong> Red flags mark cards due today through the next two school days (Monday–Friday). Past and unknown dates are not flagged.</p>
+        <p><strong>Calendar:</strong> Use the calendar icon to return and choose another range. Escape closes an open editor or returns to the calendar.</p>
+        <form method="dialog"><button type="submit" autofocus>Close help</button></form>
+      </dialog>
+      <p id="context"></p>
       <form id="editor" hidden aria-label="Custom card">
         <h3 id="editor-heading">Add custom card</h3>
         <label for="card-title">Title</label><input id="card-title" required maxlength="200">
@@ -75,10 +99,10 @@
       <div id="columns"></div>
     </section>`;
     const $ = id => shadow.getElementById(id);
-    const labels = Object.fromEntries(model.columns.map(status => [status, status ? statuses[status][0] : 'To Do']));
+    const labels = Object.fromEntries(model.columns.map(status => [status, status ? statuses[status][0] : 'To do']));
     let open = false, items = [], events = [], busy = false, dragged = null, calendar = null, toolbar = null, signature = '', dateTimer;
-    let renderedDay = dates.today();
     let editingKey = null, editorScope = null;
+    let showArchived = false;
     const summaries = new Map();
     function capturePopups(popups, cards = model.cards(events, identify, getRecords(), dates.dueDate)) {
       let changed = false;
@@ -190,7 +214,7 @@
       clearInterval(dateTimer);
       if (open) dateTimer = setInterval(refreshDay, 60000);
       host.hidden = !open; tab.setAttribute('aria-pressed', String(open));
-      if (!open) restoreCalendar();
+      if (!open) { $('help').close(); restoreCalendar(); }
       onOpenChange(open);
       if (open) { mount(); render(); if (focus) shadow.querySelector('h2').focus(); }
       else if (focus) {
@@ -238,7 +262,7 @@
     });
     async function move(key, status, beforeKey = null, focusControl = 'move') {
       if (busy) return;
-      const ranks = model.placement(items, getRecords(), key, status, beforeKey);
+      const ranks = model.placement(items.filter(item => !item.archived || item.key === key), getRecords(), key, status, beforeKey);
       if (!ranks) return;
       const item = items.find(item => item.key === key);
       busy = true; dragged = null; render(); announce('Saving…');
@@ -256,21 +280,28 @@
     }
     function render() {
       if (!open) return;
-      renderedDay = dates.today();
       const focused = shadow.activeElement;
       const focusKey = focused?.closest('.card')?.dataset.key;
       const focusControl = focused?.dataset.control;
       const columns = $('columns'); const scroll = columns.scrollLeft;
       columns.replaceChildren();
-      $('context').textContent = `${getScope() || 'Default profile'} · ${items.filter(item => !item.custom).length} unique assignments in loaded range · ${items.filter(item => item.custom).length} custom cards across all dates`;
+      const visible = items.filter(item => !item.expired && Boolean(item.archived) === showArchived);
+      columns.classList.toggle('archived', showArchived);
+      const archiveLabel = showArchived ? 'Back to active cards' : `Show archived (${items.filter(item => item.archived && !item.expired).length})`;
+      $('archive').innerHTML = toolbarIcon(showArchived ? 'board' : 'archive');
+      $('archive').title = archiveLabel; $('archive').setAttribute('aria-label', archiveLabel);
+      $('archive').setAttribute('aria-pressed', String(showArchived)); $('archive').disabled = busy;
+      $('add').hidden = showArchived;
+      $('context').textContent = showArchived ? `${getScope() || 'Default profile'} · ${visible.length} archived custom cards` : `${getScope() || 'Default profile'} · ${visible.filter(item => !item.custom).length} unique assignments in loaded range · ${visible.filter(item => item.custom).length} custom cards across all dates`;
       $('add').disabled = busy;
       $('editor').querySelectorAll('input, textarea, button').forEach(control => { control.disabled = busy; });
-      $('empty').hidden = items.length !== 0;
-      for (const status of model.columns) {
-        const columnItems = items.filter(item => item.status === status);
+      $('empty').hidden = visible.length !== 0;
+      $('empty').textContent = showArchived ? 'No archived custom cards.' : 'No cards to show. Add a custom card to get started.';
+      for (const status of showArchived ? ['done'] : model.columns) {
+        const columnItems = visible.filter(item => item.status === status);
         const column = document.createElement('div'); column.className = 'column'; column.dataset.status = status;
         column.style.setProperty('--accent', status ? statuses[status][1] : '#9bc7ff');
-        const heading = document.createElement('h3'); heading.textContent = `${labels[status]} (${columnItems.length})`; column.append(heading);
+        const heading = document.createElement('h3'); heading.textContent = `${showArchived ? 'Archived' : labels[status]} (${columnItems.length})`; column.append(heading);
         column.addEventListener('dragover', event => {
           if (!dragged || busy) return;
           event.preventDefault(); event.dataTransfer.dropEffect = 'move'; clearDrop();
@@ -285,9 +316,10 @@
           if (before !== dragged) move(dragged, status, before);
         });
         columnItems.forEach((item, index) => {
-          const card = document.createElement('article'); card.className = 'card'; card.dataset.key = item.key; card.draggable = !busy;
+          const card = document.createElement('article'); card.className = 'card'; card.dataset.key = item.key; card.draggable = !busy && !showArchived;
           const cardHeader = document.createElement('div'); cardHeader.className = 'card-header'; card.append(cardHeader);
           const handle = document.createElement('span'); handle.className = 'drag-handle'; handle.textContent = '⠿'; handle.title = item.custom ? 'Custom card · Drag to move' : 'Drag to move'; handle.setAttribute('aria-hidden', 'true'); handle.draggable = !busy; cardHeader.append(handle);
+          handle.hidden = showArchived;
           if (dates.isDueSoon(item.dueDate)) {
             card.append(dates.createFlag('due-flag'));
           }
@@ -298,7 +330,7 @@
           if (item.custom) {
             card.classList.add('custom'); card.setAttribute('aria-label', `Custom card: ${item.title}`);
             const actions = document.createElement('div'); actions.className = 'card-actions';
-            for (const action of ['Edit', 'Delete']) {
+            for (const action of showArchived ? ['Delete'] : ['Edit', 'Delete']) {
               const button = document.createElement('button'); button.type = 'button'; button.disabled = busy; button.dataset.control = action.toLowerCase(); button.title = `${action} custom card`;
               button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${action === 'Edit'
                 ? '<path d="m16 3 5 5-12 12-6 1 1-6L16 3Z M13 6l5 5"/>'
@@ -321,12 +353,20 @@
             note.textContent = item.summary;
             card.append(note);
           }
+          if (showArchived) {
+            const expiry = document.createElement('small'); expiry.className = 'note';
+            expiry.textContent = 'Permanently deletes ' + new Date(item.deleteAt).toLocaleString(); card.append(expiry);
+            const restore = document.createElement('button'); restore.type = 'button'; restore.textContent = 'Restore to To do'; restore.disabled = busy;
+            restore.addEventListener('click', () => move(item.key, '')); card.append(restore);
+            column.append(card); return;
+          }
           const label = document.createElement('label'); label.textContent = 'Move to';
           const select = document.createElement('select'); select.dataset.control = 'move'; select.disabled = busy;
           select.setAttribute('aria-label', `Move ${item.title} to`);
           for (const value of model.columns) { const option = document.createElement('option'); option.value = value; option.textContent = labels[value]; select.append(option); }
           select.value = status; select.addEventListener('change', () => move(item.key, select.value));
-          label.append(select); card.append(label);
+          const selectWrap = document.createElement('span'); selectWrap.className = 'select-wrap'; selectWrap.append(select);
+          label.append(selectWrap); card.append(label);
           const ordering = document.createElement('div'); ordering.className = 'ordering';
           for (const direction of ['up', 'down']) {
             const button = document.createElement('button'); button.type = 'button'; button.textContent = direction === 'up' ? '↑' : '↓'; button.title = `Move ${direction}`; button.dataset.control = direction;
@@ -349,11 +389,14 @@
       if (focusKey && focusControl) [...shadow.querySelectorAll('.card')].find(node => node.dataset.key === focusKey)?.querySelector(`[data-control="${focusControl}"]`)?.focus();
     }
     $('back').addEventListener('click', () => setOpen(false));
-    function refreshDay() { if (open && renderedDay !== dates.today()) render(); }
+    $('help-button').addEventListener('click', () => $('help').showModal());
+    $('archive').addEventListener('click', () => { showArchived = !showArchived; closeEditor(); items = collect(); render(); });
+    function refreshDay() { if (open) { items = collect(); render(); } }
     document.addEventListener('visibilitychange', refreshDay);
     window.addEventListener('focus', refreshDay);
     shadow.addEventListener('keydown', event => {
       if (event.key !== 'Escape' || dragged) return;
+      if ($('help').open) return;
       if (!$('editor').hidden) { if (!busy) { closeEditor(); $('add').focus(); } }
       else setOpen(false);
     });
@@ -367,7 +410,7 @@
         events = nextEvents;
         items = collect();
         mount();
-        const next = JSON.stringify([getScope(), dates.today(), items.map(item => [item.key, item.title, item.status, item.dueDate, item.summary, model.assignmentURL(item.events, location.href)])]);
+        const next = JSON.stringify([getScope(), dates.today(), items.map(item => [item.key, item.title, item.status, item.dueDate, item.summary, item.archived, item.expired, item.deleteAt, model.assignmentURL(item.events, location.href)])]);
         if (signature !== next) { signature = next; dragged = null; render(); }
       }
     };

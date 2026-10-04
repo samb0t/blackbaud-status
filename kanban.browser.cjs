@@ -296,10 +296,34 @@ const { join } = require('node:path');
     assert.equal(await custom.locator('time').getAttribute('datetime'), '2026-11-10');
     await page.evaluate(() => document.querySelectorAll('.fc-event').forEach(node => node.remove()));
     await page.waitForFunction(() => document.querySelector('#bbs-kanban').shadowRoot.querySelectorAll('.card').length === 1);
+    await custom.locator('select').selectOption('done'); await settled();
+    const completedAt = await page.evaluate(key => saved[SchoolStatusKanbanModel.dataKey(key)].completedAt, customKey);
+    await custom.getByRole('button', { name: 'Edit Personal project', exact: true }).click();
+    await board.locator('#card-summary').fill('Completed notes');
+    await board.locator('#save-card').click(); await settled();
+    assert.equal(await page.evaluate(key => saved[SchoolStatusKanbanModel.dataKey(key)].completedAt, customKey), completedAt);
+    await page.clock.setFixedTime(new Date(completedAt + 14 * 86400000));
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await custom.waitFor({ state: 'detached' });
+    await board.locator('#archive').click(); await custom.waitFor();
+    assert.match(await custom.locator('.note').last().textContent(), /Permanently deletes/);
+    await custom.getByRole('button', { name: 'Restore to To do' }).click(); await settled();
+    assert.equal(await custom.count(), 0);
+    await board.locator('#archive').click(); await custom.waitFor();
+    assert.equal(await custom.locator('select').inputValue(), '');
+    assert.equal(await page.evaluate(key => saved[SchoolStatusKanbanModel.dataKey(key)].completedAt, customKey), undefined);
     page.once('dialog', dialog => dialog.accept());
     await custom.getByRole('button', { name: 'Delete Personal project', exact: true }).click(); await settled();
     assert.equal(await custom.count(), 0);
     assert.equal(await page.evaluate(key => [key, SchoolStatusKanbanModel.dataKey(key), SchoolStatusKanbanModel.orderKey(key)].some(key => key in saved), customKey), false);
+    await page.evaluate(({ key, completedAt }) => chrome.storage.sync.set({
+      [key]: 'done', [SchoolStatusKanbanModel.orderKey(key)]: 1024,
+      [SchoolStatusKanbanModel.dataKey(key)]: { title: 'Expired card', summary: '', dueDate: '2026-10-06', completedAt }
+    }), { key: customKey, completedAt });
+    await page.clock.setFixedTime(new Date(completedAt + 104 * 86400000));
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.waitForFunction(key => !Object.hasOwn(saved, SchoolStatusKanbanModel.dataKey(key)), customKey);
+    assert.equal(await page.evaluate(key => [key, SchoolStatusKanbanModel.orderKey(key)].some(key => key in saved), customKey), false);
     assert.deepEqual(errors, []);
     console.log('Kanban browser checks passed: toolbar icon, due dates/flags, date rollover, view switching, deduplication, drag/drop, menus, ordering, reload, sync, failures, profiles, dark mode, range updates, and custom card create/edit/delete/persistence.');
   } finally {

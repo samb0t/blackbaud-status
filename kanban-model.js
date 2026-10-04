@@ -5,10 +5,32 @@
   const rank = (records, key) => Number.isFinite(records[orderKey(key)]) ? records[orderKey(key)] : null;
   const customPrefix = (origin, scope) => 'bbs-custom:' + JSON.stringify([origin, (scope || '').replace(/\s+/g, ' ').trim()]) + ':';
   const dataKey = key => 'bbs-card:' + key;
+  const day = 86400000;
+  function retention(value, status, now = Date.now()) {
+    const completedAt = status === 'done' && Number.isFinite(value.completedAt) ? value.completedAt : null;
+    const archiveAt = completedAt === null ? null : completedAt + 14 * day;
+    const deleteAt = archiveAt === null ? null : archiveAt + 90 * day;
+    return { archiveAt, deleteAt, archived: archiveAt !== null && now >= archiveAt, expired: deleteAt !== null && now >= deleteAt };
+  }
+  function customMove(value, previousStatus, status, now = Date.now()) {
+    const { completedAt, ...details } = value;
+    return status === 'done' ? { ...details, completedAt: previousStatus === 'done' && Number.isFinite(completedAt) ? completedAt : now } : details;
+  }
+  function cleanup(records, now = Date.now()) {
+    const values = {}, remove = [];
+    for (const [data, value] of Object.entries(records)) {
+      if (!data.startsWith('bbs-card:bbs-custom:') || !value || typeof value.title !== 'string') continue;
+      const key = data.slice('bbs-card:'.length);
+      if (records[key] !== 'done') continue;
+      if (!Number.isFinite(value.completedAt)) values[data] = customMove(value, 'done', 'done', now);
+      else if (retention(value, records[key], now).expired) remove.push(data, key, orderKey(key));
+    }
+    return { values, remove };
+  }
   function customCards(records, origin, scope) {
     const prefix = customPrefix(origin, scope);
     return Object.entries(records).filter(([key, value]) => key.startsWith(dataKey(prefix)) && value && typeof value.title === 'string' && typeof value.summary === 'string' && typeof value.dueDate === 'string')
-      .map(([key, value]) => ({ key: key.slice('bbs-card:'.length), title: value.title, summary: value.summary, dueDate: value.dueDate, custom: true, events: [] }));
+      .map(([key, value]) => ({ key: key.slice('bbs-card:'.length), title: value.title, summary: value.summary, dueDate: value.dueDate, ...retention(value, records[key.slice('bbs-card:'.length)]), custom: true, events: [] }));
   }
   function cards(events, identify, records, getDueDate = () => null, custom = []) {
     const unique = new Map();
@@ -59,6 +81,6 @@
     }
     return null;
   }
-  root.SchoolStatusKanbanModel = { columns, orderKey, customPrefix, dataKey, customCards, cards, placement, assignmentURL };
+  root.SchoolStatusKanbanModel = { columns, orderKey, customPrefix, dataKey, customCards, retention, customMove, cleanup, cards, placement, assignmentURL };
   if (typeof module !== 'undefined') module.exports = root.SchoolStatusKanbanModel;
 })(globalThis);

@@ -9,10 +9,10 @@ A dependency-free Chrome Manifest V3 extension for personal calendar colors, dar
 3. Click **Load unpacked** and select this `blackbaud-status` folder.
 4. Reload your Blackbaud calendar page.
 5. In the bottom-right **My statuses** panel, enter a student/profile name, then click **Start marking**.
-6. Click a calendar item and choose **In progress** (yellow), **Done** (green), **In class / don’t worry** (grey), or **Clear personal status**.
+6. Click a calendar item and choose **In progress** (yellow), **Done** (green), **In class** (grey), or **Clear personal status**.
 7. Click **Finish marking** or press Escape to restore ordinary assignment clicks. Collapsing the panel also stops marking.
 
-Colors persist across reloads and month changes. Automatic date-based red flags appear on calendar events and Kanban cards. The former manual Due soon status is no longer used; previously labeled items appear without a personal status (To Do in Kanban). Switching the profile changes the set of personal statuses. Use distinct profile names for different children, especially if the site doesn't include a child name in event titles.
+Colors persist across reloads and month changes. Automatic date-based red flags appear on calendar events and Kanban cards. The former manual Due soon status is no longer used; previously labeled items appear without a personal status (To do in Kanban). Switching the profile changes the set of personal statuses. Use distinct profile names for different children, especially if the site doesn't include a child name in event titles.
 
 Click the **Dark mode** moon icon beside the minimize button in the **My statuses** header to toggle a dark appearance for the entire calendar page, including navigation, calendar cells, controls, and the status panel. The adjacent Kanban icon switches to a calendar icon while the board is open. Both controls have tooltips and accessible labels and remain available when the panel is minimized. Light mode is the default. The preference is saved alongside statuses in Chrome Sync, restored on reload, and applied to other open calendar tabs when it changes. It is shared across schools and student profiles. Status colors stay recognizable in both themes. Turning dark mode off restores the site's original appearance, and newly loaded calendar content automatically follows the selected theme.
 
@@ -24,7 +24,7 @@ The theme preserves background colors on wrappers around the site navigation as 
 
 1. Switch the calendar to **Grid** view, then select the range you want to work with and your student/profile name.
 2. Click the small **Kanban board icon** immediately to the right of **Month**, or **Open Kanban** in **My statuses**. The icon has a tooltip and an accessible label.
-3. Organize assignments into **To Do**, **In progress**, **Done**, and **In class / don’t worry**.
+3. Organize assignments into **To do**, **In progress**, **Done**, and **In class**.
 4. Drag a card using its **⠿ grip icon**. Drop it on a column's heading or empty space to append it, or over another card to insert above it.
 5. For keyboard or touch use, choose a column with **Move to**, and reorder with the small **↑ / ↓** buttons (with tooltips and accessible labels).
 6. Click **Back to calendar**, press Escape while focused in the board, or select a native calendar toolbar button to return to the calendar. Choose another range there, then reopen Kanban.
@@ -33,11 +33,15 @@ The board uses the **currently loaded calendar items**, with repeated segments o
 
 ### Custom cards
 
-Click **Add custom card**, enter a **title** and **due date**, add an optional **summary**, and click **Save card**. New cards start in **To Do**. Titles support up to 200 characters and summaries up to 1,000 characters; summaries display as plain text with line breaks preserved. Custom cards use the same due-date flags, sorting, drag-and-drop, column menus, and ordering controls as assignments.
+Click **Add custom card**, enter a **title** and **due date**, add an optional **summary**, and click **Save card**. New cards start in **To do**. Titles support up to 200 characters and summaries up to 1,000 characters; summaries display as plain text with line breaks preserved. Custom cards use the same due-date flags, sorting, drag-and-drop, column menus, and ordering controls as assignments.
 
 Custom cards have a subtle **purple border**. Use the **pencil** icon beside the grab handle to edit details while preserving the card's column and position, or the **trash-can** icon to delete it after confirmation. Both icons have tooltips and accessible labels. **Cancel** or Escape dismisses the editor. Custom cards are saved in Chrome Sync for the current school and student/profile and remain on the board across calendar ranges and reloads. Cards with identical titles are independent. They appear only on the board and do not create school calendar events.
 
-Moving a card updates the same synced status that colors its calendar entries; **To Do** clears that status. By default, each column sorts by earliest due date first, with undated items last and titles breaking ties. Manual ordering also saves in Chrome Sync, separately for each school and student profile, and is restored when those items appear again. Saved manual ordering takes precedence; new/unordered cards sort by due date after ordered cards. A move through **Move to** appends the card to its destination column. Other open tabs update when Chrome delivers synced changes. The board follows the saved dark-mode preference.
+Custom cards automatically **archive after 14 days in Done**, measured from when they entered that column. **Show archived** opens the current profile's archive, where each card shows its permanent deletion date and offers **Restore to To do** and the trash-can icon. Archived cards are **permanently deleted after 90 additional days**. Moving a card out of Done cancels its timer; completing it again starts a new timer. Editing or reordering a completed card does not reset the timer. Existing Done custom cards without a completion timestamp start their timer when this update first loads.
+
+Retention uses elapsed days, not school days or due dates. Cleanup runs when a calendar page loads, gains focus, and periodically while it is open; expired data may remain in storage until the next visit. Deletion removes the card's details, status, and ordering. The policy bounds retention time, though Chrome Sync's storage limits still apply if many cards are created within that time.
+
+Moving a card updates the same synced status that colors its calendar entries; **To do** clears that status. By default, each column sorts by earliest due date first, with undated items last and titles breaking ties. Manual ordering also saves in Chrome Sync, separately for each school and student profile, and is restored when those items appear again. Saved manual ordering takes precedence; new/unordered cards sort by due date after ordered cards. A move through **Move to** appends the card to its destination column. Other open tabs update when Chrome delivers synced changes. The board follows the saved dark-mode preference.
 
 Click an assignment's linked title to open it in a new tab. When the calendar supplies no usable web link, open the assignment from the calendar.
 

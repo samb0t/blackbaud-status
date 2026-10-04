@@ -1,12 +1,36 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { identify } = require('./identity.js');
-const { cards, placement, orderKey, assignmentURL, customPrefix, dataKey, customCards } = require('./kanban-model.js');
+const { cards, placement, orderKey, assignmentURL, customPrefix, dataKey, customCards, retention, customMove, cleanup } = require('./kanban-model.js');
 const origin = 'https://example.myschoolapp.com';
 const event = (title, attributes = {}) => ({ textContent: title, querySelector: () => null, getAttribute: name => attributes[name] || null });
 const identifyA = element => identify(element, origin, 'Student A');
 const events = ['Alpha', 'Bravo', 'Charlie'].map((title, index) => event(title, { 'data-assignment-id': String(index) }));
 const keys = events.map(element => identifyA(element).key);
+
+test('retention archives after 14 days and expires after 90 additional days', () => {
+  const now = Date.UTC(2026, 9, 4), day = 86400000;
+  const value = customMove({ title: 'Task' }, '', 'done', now);
+  assert.equal(retention(value, 'done', now + 14 * day - 1).archived, false);
+  assert.equal(retention(value, 'done', now + 14 * day).archived, true);
+  assert.equal(retention(value, 'done', now + 104 * day - 1).expired, false);
+  assert.equal(retention(value, 'done', now + 104 * day).expired, true);
+  assert.equal(retention(value, 'progress', now + 105 * day).archived, false);
+  assert.equal(customMove(value, 'done', 'done', now + day).completedAt, now);
+  const restored = customMove(value, 'done', '', now + day);
+  assert.equal(restored.completedAt, undefined);
+  assert.equal(customMove(restored, '', 'done', now + day).completedAt, now + day);
+});
+
+test('cleanup initializes legacy Done cards and removes only expired custom cards', () => {
+  const key = customPrefix(origin, 'Student A') + 'expired', legacy = key + '-legacy';
+  const now = Date.UTC(2026, 9, 4);
+  const records = { [key]: 'done', [dataKey(key)]: { title: 'Old', completedAt: now - 104 * 86400000 }, [legacy]: 'done', [dataKey(legacy)]: { title: 'Legacy' }, [keys[0]]: 'done' };
+  const result = cleanup(records, now);
+  assert.deepEqual(result.remove, [dataKey(key), key, orderKey(key)]);
+  assert.equal(result.values[dataKey(legacy)].completedAt, now);
+  assert.equal(records[dataKey(legacy)].completedAt, undefined);
+});
 
 test('custom cards isolate school/profile data and keep identical titles distinct', () => {
   const a = customPrefix(origin, 'Student A') + 'one', b = customPrefix(origin, 'Student A') + 'two';

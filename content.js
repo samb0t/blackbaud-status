@@ -306,7 +306,7 @@
       const nativeClasses = value => (value || '').split(/\s+/).filter(value => value && !['bbs-marking', 'bbs-flagged-title'].includes(value)).join(' ');
       if (!mutations.some(m => m.type !== 'attributes' || m.attributeName !== 'class' || nativeClasses(m.oldValue) !== nativeClasses(m.target.getAttribute('class')))) return;
       clearTimeout(timer); timer = setTimeout(refresh, 100);
-    }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'hidden', 'href', 'aria-describedby', 'data-event-id', 'data-eventid', 'data-assignment-id', 'data-assignmentid', 'data-summary', 'data-description', 'data-bbs-summary', ...SchoolStatusCalendarDates.attributes] });
+    }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'hidden', 'href', 'aria-describedby', 'data-event-id', 'data-eventid', 'data-assignment-id', 'data-assignmentid', 'data-summary', 'data-description', 'data-bbs-summary', 'data-bbs-assignment-id', 'data-bbs-event-id', 'data-bbs-user-id', 'data-bbs-detail-link', 'data-bbs-subject', ...SchoolStatusCalendarDates.attributes] });
   }
   start();
 })();

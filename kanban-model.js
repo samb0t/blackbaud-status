@@ -1,6 +1,22 @@
 /* Pure board helpers, shared with the dependency-free tests. */
 (function (root) {
   const columns = ['', 'progress', 'done', 'ignore'];
+  const normalizeSubject = value => typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, 120) : '';
+  const subjectKey = value => normalizeSubject(value).toLowerCase();
+  function subjectHue(value) {
+    let hash = 0;
+    for (const character of subjectKey(value)) hash = (Math.imul(hash, 31) + character.codePointAt(0)) >>> 0;
+    return hash % 360;
+  }
+  function subjectFacets(items) {
+    const facets = new Map();
+    for (const item of items) {
+      const key = subjectKey(item.subject);
+      if (!facets.has(key)) facets.set(key, { key, label: normalizeSubject(item.subject) || 'No subject', count: 0 });
+      facets.get(key).count++;
+    }
+    return [...facets.values()].sort((a, b) => a.key === '' ? 1 : b.key === '' ? -1 : a.label.localeCompare(b.label));
+  }
   const orderKey = key => 'bbs-order:' + key;
   const rank = (records, key) => Number.isFinite(records[orderKey(key)]) ? records[orderKey(key)] : null;
   const customPrefix = (origin, scope) => 'bbs-custom:' + JSON.stringify([origin, (scope || '').replace(/\s+/g, ' ').trim()]) + ':';
@@ -30,7 +46,7 @@
   function customCards(records, origin, scope) {
     const prefix = customPrefix(origin, scope);
     return Object.entries(records).filter(([key, value]) => key.startsWith(dataKey(prefix)) && value && typeof value.title === 'string' && typeof value.summary === 'string' && typeof value.dueDate === 'string')
-      .map(([key, value]) => ({ key: key.slice('bbs-card:'.length), title: value.title, summary: value.summary, dueDate: value.dueDate, ...retention(value, records[key.slice('bbs-card:'.length)]), custom: true, events: [] }));
+      .map(([key, value]) => ({ key: key.slice('bbs-card:'.length), title: value.title, summary: value.summary, subject: normalizeSubject(value.subject), dueDate: value.dueDate, ...retention(value, records[key.slice('bbs-card:'.length)]), custom: true, events: [] }));
   }
   function cards(events, identify, records, getDueDate = () => null, custom = []) {
     const unique = new Map();
@@ -40,7 +56,7 @@
       if (unique.has(identity.key)) { unique.get(identity.key).events.push(event); continue; }
       unique.set(identity.key, { ...identity, events: [event], status: columns.includes(records[identity.key]) ? records[identity.key] : '' });
     }
-    return [...[...unique.values()].map(item => ({ ...item, dueDate: getDueDate(item.events) })),
+    return [...[...unique.values()].map(item => ({ ...item, dueDate: getDueDate(item.events), subject: item.events.map(event => normalizeSubject(event.getAttribute('data-bbs-subject'))).find(Boolean) || '' })),
       ...custom.map(item => ({ ...item, status: columns.includes(records[item.key]) ? records[item.key] : '' }))].sort((a, b) => {
       const left = rank(records, a.key), right = rank(records, b.key);
       if (left !== right) {
@@ -71,8 +87,9 @@
       .filter(([key, value]) => records[key] !== value));
   }
   function assignmentURL(events, base) {
-    for (const event of events) {
-      const href = event.getAttribute('href') || event.querySelector('a[href]')?.getAttribute('href');
+    const links = [...events.map(event => event.getAttribute('data-bbs-detail-link')),
+      ...events.map(event => event.getAttribute('href') || event.querySelector('a[href]')?.getAttribute('href'))];
+    for (const href of links) {
       if (!href || href.trim() === '#') continue;
       try {
         const url = new URL(href, base);
@@ -81,6 +98,16 @@
     }
     return null;
   }
-  root.SchoolStatusKanbanModel = { columns, orderKey, customPrefix, dataKey, customCards, retention, customMove, cleanup, cards, placement, assignmentURL };
+  function workGroups(items, today) {
+    const groups = ['Overdue', 'Due today', 'Upcoming', 'Due date unavailable'].map(label => ({ label, items: [] }));
+    for (const item of items) {
+      if (item.archived || item.expired || ['done', 'ignore'].includes(item.status)) continue;
+      const index = !item.dueDate ? 3 : item.dueDate < today ? 0 : item.dueDate === today ? 1 : 2;
+      groups[index].items.push(item);
+    }
+    for (const group of groups) group.items.sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || '') || a.title.localeCompare(b.title) || a.key.localeCompare(b.key));
+    return groups;
+  }
+  root.SchoolStatusKanbanModel = { columns, normalizeSubject, subjectKey, subjectHue, subjectFacets, orderKey, customPrefix, dataKey, customCards, retention, customMove, cleanup, cards, placement, assignmentURL, workGroups };
   if (typeof module !== 'undefined') module.exports = root.SchoolStatusKanbanModel;
 })(globalThis);

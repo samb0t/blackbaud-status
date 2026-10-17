@@ -1,6 +1,6 @@
 /* Calendar DOM dates and date-only arithmetic (no timezone or DST shifts). */
 (function (root) {
-  const dueAttributes = ['data-due-date', 'data-duedate', 'data-due', 'data-due-at', 'data-due-on'];
+  const dueAttributes = ['data-bbs-due-date', 'data-due-date', 'data-duedate', 'data-due', 'data-due-at', 'data-due-on'];
   const attributes = [...dueAttributes, 'data-date', 'datetime', 'title', 'aria-label', 'colspan', 'rowspan'];
   const measuredDates = new WeakMap();
   function parseDate(value) {
@@ -122,7 +122,7 @@
     return null;
   }
   function dueDate(events) {
-    return latest(events.map(explicitDate)) || latest(events.map(calendarDate));
+    return latest(events.map(event => parseDate(event.getAttribute('data-bbs-due-date')))) || latest(events.map(explicitDate)) || latest(events.map(calendarDate));
   }
   function createFlag(className) {
     const flag = document.createElement('span'); flag.className = className;

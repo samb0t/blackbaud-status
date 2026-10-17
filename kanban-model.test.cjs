@@ -1,12 +1,35 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { identify } = require('./identity.js');
-const { cards, placement, orderKey, assignmentURL, customPrefix, dataKey, customCards, retention, customMove, cleanup } = require('./kanban-model.js');
+const { cards, placement, orderKey, assignmentURL, customPrefix, dataKey, customCards, retention, customMove, cleanup, workGroups, subjectKey, subjectHue, subjectFacets } = require('./kanban-model.js');
 const origin = 'https://example.myschoolapp.com';
 const event = (title, attributes = {}) => ({ textContent: title, querySelector: () => null, getAttribute: name => attributes[name] || null });
 const identifyA = element => identify(element, origin, 'Student A');
 const events = ['Alpha', 'Bravo', 'Charlie'].map((title, index) => event(title, { 'data-assignment-id': String(index) }));
 const keys = events.map(element => identifyA(element).key);
+test('subject facets deduplicate segments, normalize custom subjects, and keep unknown subjects', () => {
+  const customKey = customPrefix(origin, 'Student A') + 'subject';
+  const custom = customCards({ [dataKey(customKey)]: { title: 'Personal', dueDate: '2026-10-02', summary: '', subject: '  MATH  ' } }, origin, 'Student A');
+  const items = cards([event('Segment 1', { 'data-assignment-id': '1' }), event('Segment 2', { 'data-assignment-id': '1', 'data-bbs-subject': 'Math' }), event('Unknown', { 'data-assignment-id': '2' })], identifyA, {}, () => null, custom);
+  assert.equal(items.length, 3);
+  const facets = subjectFacets(items);
+  assert.equal(facets.find(facet => facet.key === 'math').count, 2);
+  assert.equal(facets.find(facet => facet.key === '').count, 1);
+  assert.equal(subjectHue('Math'), subjectHue('  MATH '));
+  assert.equal(subjectKey(null), '');
+  assert.equal(custom[0].subject, 'MATH');
+});
+test('detail links take precedence across segments and unsafe links fall back', () => {
+  assert.equal(assignmentURL([event('A', { href: '/old' }), event('B', { 'data-bbs-detail-link': '/lms-assignment/assignment/assignment-parent-view/42/7' })], origin), origin + '/lms-assignment/assignment/assignment-parent-view/42/7');
+  for (const link of ['javascript:alert(1)', 'data:text/html,bad', '#']) assert.equal(assignmentURL([event('A', { 'data-bbs-detail-link': link, href: '/valid' })], origin), origin + '/valid');
+});
+test('work groups exclude completed work, keep unknown dates, and sort independently of manual order', () => {
+  const item = (key, dueDate, status = '') => ({ key, title: key, dueDate, status });
+  const input = [item('later', '2027-01-01'), item('today', '2026-10-02', 'progress'), item('older', '2026-09-01'), item('soon', '2026-10-03'), item('unknown', null), item('done', '2026-09-01', 'done'), item('class', '2026-09-01', 'ignore'), { ...item('archived', null), archived: true }];
+  assert.deepEqual(workGroups(input, '2026-10-02').map(group => group.items.map(item => item.key)), [['older'], ['today'], ['soon', 'later'], ['unknown']]);
+  assert.deepEqual(workGroups(input, '2026-10-03')[0].items.map(item => item.key), ['older', 'today']);
+  assert.equal(input[0].key, 'later');
+});
 
 test('retention archives after 14 days and expires after 90 additional days', () => {
   const now = Date.UTC(2026, 9, 4), day = 86400000;

@@ -27,3 +27,15 @@ test('explicit link ID is recognized but student IDs and javascript links are no
   assert.equal(identify(event('HW', { href: 'javascript:void(0)' }), origin, '').fallback, true);
 });
 test('empty events are ignored', () => assert.equal(identify(event(' '), origin, ''), null));
+test('page-data IDs take priority, survive range/title changes, and isolate students', () => {
+  const attrs = { 'data-bbs-assignment-id': '42', 'data-bbs-event-id': '99', 'data-bbs-user-id': '7', 'data-assignment-id': 'old' };
+  const a = identify(event('Homework', attrs), origin, 'A');
+  assert.equal(a.fallback, false);
+  assert.equal(a.key, identify(event('Continued homework', attrs), origin, 'A').key);
+  for (const changed of [{ 'data-bbs-assignment-id': '43' }, { 'data-bbs-user-id': '8' }]) {
+    assert.notEqual(a.key, identify(event('Homework', { ...attrs, ...changed }), origin, 'A').key);
+  }
+  assert.notEqual(a.key, identify(event('Homework', attrs), origin, 'B').key);
+  assert.notEqual(a.key, identify(event('Homework', attrs), 'https://other.myschoolapp.com', 'A').key);
+  assert.equal(identify(event('Event', { 'data-bbs-assignment-id': '0', 'data-bbs-event-id': '9' }), origin, '').fallback, false);
+});

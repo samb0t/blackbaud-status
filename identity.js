@@ -5,7 +5,16 @@
     const title = normalize(event.querySelector('.fc-event-title, .fc-title, .fc-list-event-title, .fc-list-item-title')?.textContent || event.textContent);
     if (!title) return null;
     let id = null;
+    for (const type of ['assignment', 'event']) {
+      const value = event.getAttribute(`data-bbs-${type}-id`)?.trim();
+      if (!value || value === '0') continue;
+      id = [type + 'id', value];
+      const userId = event.getAttribute('data-bbs-user-id')?.trim();
+      if (userId && userId !== '0') id.push('userid', userId);
+      break;
+    }
     for (const attribute of ['data-assignment-id', 'data-assignmentid', 'data-event-id', 'data-eventid']) {
+      if (id) break;
       const value = event.getAttribute(attribute);
       if (value) { id = [attribute.replaceAll('-', '').replace('data', ''), value]; break; }
     }

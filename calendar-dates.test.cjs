@@ -1,12 +1,18 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseDate, today, isDueSoon } = require('./calendar-dates.js');
+const { parseDate, today, isDueSoon, dueDate } = require('./calendar-dates.js');
 
 test('calendar dates retain the written day instead of shifting across timezones', () => {
   for (const value of ['2026-10-06', '2026-10-06T00:00:00Z', '2026-10-06T23:00:00-07:00', '10/6/2026', 'October 6, 2026', 'Tue, Oct 6, 2026']) {
     assert.equal(parseDate(value), '2026-10-06');
   }
   assert.equal(today(new Date(2026, 9, 6, 23, 59)), '2026-10-06');
+});
+test('live DateDue format takes priority across all segments without timezone conversion', () => {
+  const event = attributes => ({ getAttribute: name => attributes[name] || null, querySelectorAll: () => [] });
+  assert.equal(parseDate('1/8/2027 10:00 AM'), '2027-01-08');
+  assert.equal(dueDate([event({ 'data-due-date': '2027-02-01' }), event({ 'data-bbs-due-date': '1/8/2027 10:00 AM' })]), '2027-01-08');
+  assert.equal(dueDate([event({ 'data-bbs-due-date': 'invalid', 'data-due-date': '2026-10-06' })]), '2026-10-06');
 });
 
 test('invalid, missing-year, and impossible dates stay unknown', () => {

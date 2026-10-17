@@ -409,6 +409,92 @@ const { join } = require('node:path');
     });
     await board.getByText('Loaded Auto B', { exact: true }).waitFor({ state: 'detached' });
     assert.equal(await page.evaluate(() => summaryClicks), 0);
+    // MAIN-world metadata drives identity, deadlines and links in both views.
+    await page.clock.setFixedTime(new Date(2026, 9, 2, 12));
+    await page.evaluate(() => {
+      const grid = document.querySelector('.fc-view-container');
+      grid.innerHTML = '<div class="fc-month-view"></div>';
+      for (const [id, user, due, title] of [[1, 7, '10/1/2026 10:00 AM', 'Same title'], [1, 7, '10/1/2026 10:00 AM', 'Continued'], [2, 7, '10/2/2026 12:20 PM', 'Same title'], [2, 8, '1/8/2027 10:00 AM', 'Other student'], [3, 7, '', 'Unknown']]) {
+        const event = document.createElement('a'); event.className = 'fc-event'; event.textContent = title;
+        event.href = '/fallback';
+        event.fcSeg = { eventRange: { def: { extendedProps: { AssignmentId: id, UserId: user, DateDue: due, DetailLink: `/lms-assignment/assignment/assignment-parent-view/${id}/${user}` } } } };
+        grid.firstElementChild.append(event);
+      }
+    });
+    await page.waitForFunction(() => document.querySelectorAll('[data-bbs-assignment-id]').length === 5);
+    await page.waitForFunction(() => document.querySelector('#bbs-kanban').shadowRoot.querySelectorAll('.card').length === 4);
+    assert.equal(await board.locator('a.title').first().getAttribute('href'), `http://127.0.0.1:${server.address().port}/lms-assignment/assignment/assignment-parent-view/1/7`);
+    await board.locator('#work').click();
+    assert.deepEqual(await board.locator('.column h3').allTextContents(), ['Overdue (1)', 'Due today (1)', 'Upcoming (1)', 'Due date unavailable (1)']);
+    assert.equal(await board.locator('.card[draggable="true"]').count(), 0);
+    assert.equal(await board.locator('.ordering').count(), 0);
+    await board.locator('.column').nth(1).locator('select').selectOption('done'); await settled();
+    assert.equal(await board.locator('.card').count(), 3);
+    assert.equal(await board.locator('#work').evaluate(node => node.getRootNode().activeElement === node), true);
+    await board.locator('.column').first().locator('select').selectOption('ignore'); await settled();
+    assert.equal(await board.locator('.card').count(), 2);
+    await board.locator('#work').click();
+    assert.equal(await column('done').locator('.card').count(), 1);
+    assert.equal(await column('ignore').locator('.card').count(), 1);
+    // Re-rendering a new range preserves page-data identity even when titles change.
+    await page.evaluate(() => {
+      const old = document.querySelector('[data-bbs-assignment-id="2"][data-bbs-user-id="7"]');
+      const replacement = old.cloneNode(true); replacement.textContent = 'Renamed in next range'; replacement.fcSeg = old.fcSeg; old.replaceWith(replacement);
+    });
+    await column('done').getByText('Renamed in next range', { exact: true }).waitFor();
+    // Reused DOM must lose stale bridge values when the next event has no data.
+    await page.evaluate(() => {
+      const event = document.querySelector('[data-bbs-assignment-id="2"][data-bbs-user-id="8"]');
+      delete event.fcSeg; event.textContent = 'Unsupported event';
+    });
+    await page.waitForFunction(() => ![...document.querySelectorAll('.fc-event')].find(event => event.textContent === 'Unsupported event').hasAttribute('data-bbs-due-date'));
+    await board.getByText('Unsupported event', { exact: true }).waitFor();
+    const unsupported = board.locator('.card').filter({ hasText: 'Unsupported event' });
+    assert.equal(await unsupported.locator('.due-date').textContent(), 'Due date unavailable');
+    assert.equal(await unsupported.locator('a.title').getAttribute('href'), `http://127.0.0.1:${server.address().port}/fallback`);
+    // Subject facets count unique cards and stay usable in deadline mode.
+    await page.evaluate(() => {
+      for (const event of document.querySelectorAll('.fc-event')) {
+        const props = event.fcSeg?.eventRange.def.extendedProps;
+        if (!props) continue;
+        props.GroupName = props.AssignmentId === 1 ? 'Math' : props.AssignmentId === 2 ? 'Science' : '';
+        event.append(document.createTextNode(' '));
+      }
+    });
+    await board.locator('#subject-filter option').filter({ hasText: 'Math (1)' }).waitFor({ state: 'attached' });
+    const subjectFilter = board.locator('#subject-filter');
+    await subjectFilter.selectOption(JSON.stringify('math'));
+    assert.equal(await board.locator('.card').count(), 1);
+    const mathHue = await board.locator('.card').evaluate(node => node.style.getPropertyValue('--subject-hue'));
+    assert.equal(await board.locator('.card').evaluate(node => getComputedStyle(node).borderTopWidth), '2px');
+    await board.locator('#work').click();
+    assert.equal(await board.locator('.card').count(), 0); // Math is In class.
+    assert.match(await board.locator('#empty').textContent(), /No cards match/);
+    assert.equal(await subjectFilter.inputValue(), JSON.stringify('math'));
+    await board.locator('#add').click();
+    await board.locator('#card-title').fill('Subject custom task');
+    await board.locator('#card-due').fill('2026-10-03');
+    await board.locator('#card-subject').fill(' math ');
+    await board.locator('#save-card').click(); await settled();
+    assert.equal(await board.locator('.card').count(), 1);
+    assert.equal(await board.locator('.subject').textContent(), 'Custom card · math');
+    assert.equal(await board.locator('.card').evaluate(node => node.style.getPropertyValue('--subject-hue')), mathHue);
+    const subjectCustomKey = await board.locator('.card').getAttribute('data-key');
+    assert.equal(await page.evaluate(key => saved['bbs-card:' + key].subject, subjectCustomKey), 'math');
+    await board.locator('.card [data-control="edit"]').click();
+    assert.equal(await board.locator('#card-subject').inputValue(), 'math');
+    await board.locator('#card-subject').fill('Science');
+    await board.locator('#save-card').click(); await settled();
+    assert.equal(await board.locator('.card').count(), 0);
+    await subjectFilter.selectOption(JSON.stringify('science'));
+    assert.equal(await board.locator('.card').count(), 1); // Done school work is excluded.
+    await board.locator('#work').click();
+    assert.equal(await board.locator('.card').count(), 2);
+    await subjectFilter.selectOption(JSON.stringify(''));
+    assert.equal(await board.locator('.card').count(), 2);
+    await panel.locator('#scope').fill('Subject test profile'); await panel.locator('#scope').dispatchEvent('change');
+    await page.waitForFunction(() => document.querySelector('#bbs-kanban').shadowRoot.querySelector('#subject-filter').value === 'null');
+    assert.equal(await board.locator('.custom').count(), 0);
     assert.deepEqual(errors, []);
     console.log('Kanban browser checks passed: toolbar icon, due dates/flags, date rollover, view switching, deduplication, drag/drop, menus, ordering, reload, sync, failures, profiles, dark mode, range updates, and custom card create/edit/delete/persistence.');
   } finally {

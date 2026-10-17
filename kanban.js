@@ -51,10 +51,17 @@
       :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
       #columns { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 12px; overflow-x: auto; padding: 8px 3px 16px; margin-top: 12px; }
       #columns.archived { grid-template-columns: minmax(220px, 600px); }
+      #columns.work { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
       .column { background: var(--column); border: 1px solid var(--edge); border-top: 5px solid var(--accent); border-radius: 8px; padding: 12px; min-height: 260px; }
       .card { position: relative; background: var(--bg); border: 1px solid var(--edge); border-radius: 8px; padding: 12px; margin-bottom: 10px; overflow-wrap: anywhere; }
       .card[draggable=true] { cursor: grab; } .card.dragging { opacity: .45; }
       .card.custom { border-color: #9474bc; } :host([data-dark]) .card.custom { border-color: #b69bd9; }
+      .card.has-subject { border: 2px solid hsl(var(--subject-hue) 55% 40%); }
+      :host([data-dark]) .card.has-subject { border-color: hsl(var(--subject-hue) 60% 65%); }
+      .subject { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+      .filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+      .filters label { margin: 0; min-width: min(100%, 220px); max-width: 100%; }
+      .filters select { max-width: 100%; } #work[aria-pressed=true] { border-color: var(--focus); background: var(--column); }
       .card-header { display: flex; align-items: center; gap: 4px; min-height: 32px; padding-right: 24px; margin-bottom: 4px; }
       .drag-handle { display: block; width: 28px; font-size: 20px; line-height: 24px; color: var(--muted); cursor: grab; user-select: none; }
       .card-actions { display: flex; gap: 4px; margin-left: auto; }
@@ -80,18 +87,23 @@
       <dialog id="help" aria-labelledby="help-heading">
         <h2 id="help-heading">Kanban help</h2>
         <p><strong>Organize cards:</strong> Drag the grab handle between columns or above another card to reorder. Use Move to and the ↑/↓ buttons with a keyboard or touch.</p>
-        <p><strong>Custom cards:</strong> Use the + button to add a title, due date, and optional summary. A purple border identifies custom cards. The pencil edits a card; the trash can permanently deletes it after confirmation. Cards sync for the current school and profile and remain across calendar ranges.</p>
+        <p><strong>Custom cards:</strong> Use the + button to add a title, due date, and optional subject and summary. Custom cards have a text label and use their subject's border color, or purple when no subject is set. The pencil edits a card; the trash can permanently deletes it after confirmation. Cards sync for the current school and profile and remain across calendar ranges.</p>
         <p><strong>Archive:</strong> Custom cards archive after 14 days in Done or In class and are permanently deleted after 90 more days. The archive-box button shows archived cards and their deletion dates. Moving to another column resets the timer; restoring to To do cancels it. Editing or reordering does not reset the timer. The board icon returns to active cards.</p>
         <p><strong>Assignments:</strong> Only assignments in the loaded calendar range appear. Linked titles open assignments in a new tab. Summaries are read directly from the calendar’s loaded event data without opening popups. If a summary remains unavailable, open its calendar popup manually.</p>
         <p><strong>Due-date flags:</strong> Red flags mark cards due today through the next two school days (Monday–Friday). Past and unknown dates are not flagged.</p>
+        <p><strong>Group by deadline:</strong> Toggle the deadline view to see active work grouped into Overdue, Due today, Upcoming, and Due date unavailable. Done and In class are excluded. Each group sorts by earliest deadline; use Move to to update progress. Toggle again to return to manual Kanban ordering.</p>
+        <p><strong>Subjects:</strong> Border colors and text labels identify the school's course/group name. Use the Subject filter in either view or the archive; counts reflect cards in that view before filtering. Choose All subjects to clear it. Custom cards can use a suggested subject or a new name.</p>
         <p><strong>Calendar:</strong> Use the calendar icon to return and choose another range. Escape closes an open editor or returns to the calendar.</p>
         <form method="dialog"><button type="submit" autofocus>Close help</button></form>
       </dialog>
       <p id="context"></p>
+      <div class="filters"><button id="work" type="button" aria-pressed="false" aria-controls="columns">Group by deadline</button>
+      <label for="subject-filter">Subject<select id="subject-filter" aria-controls="columns"><option value="null">All subjects</option></select></label></div>
       <form id="editor" hidden aria-label="Custom card">
         <h3 id="editor-heading">Add custom card</h3>
         <label for="card-title">Title</label><input id="card-title" required maxlength="200">
         <label for="card-due">Due date</label><input id="card-due" type="date" required min="1000-01-01" max="9999-12-31">
+        <label for="card-subject">Subject (optional)</label><input id="card-subject" maxlength="120" list="subject-options"><datalist id="subject-options"></datalist>
         <label for="card-summary">Summary</label><textarea id="card-summary" rows="3" maxlength="1000"></textarea>
         <div class="actions"><button id="save-card" type="submit">Save card</button><button id="cancel-card" type="button">Cancel</button></div>
       </form>
@@ -102,7 +114,8 @@
     const labels = Object.fromEntries(model.columns.map(status => [status, status ? statuses[status][0] : 'To do']));
     let open = false, items = [], events = [], busy = false, dragged = null, calendar = null, toolbar = null, signature = '', dateTimer;
     let editingKey = null, editorScope = null;
-    let showArchived = false;
+    let showArchived = false, showWork = false;
+    let selectedSubject = null, filterScope = getScope();
     const summaries = new Map();
     function capturePopups(popups, cards = model.cards(events, identify, getRecords(), dates.dueDate)) {
       let changed = false;
@@ -249,6 +262,7 @@
       $('card-title').value = item?.title || '';
       $('card-due').value = item?.dueDate || '';
       $('card-summary').value = item?.summary || '';
+      $('card-subject').value = item?.subject || '';
       $('editor').hidden = false; $('card-title').focus();
     }
     async function writeCustom(key, value) {
@@ -274,7 +288,7 @@
       const title = $('card-title').value.trim(), dueDate = dates.parseDate($('card-due').value);
       if (!title || !dueDate) { announce('Enter a title and valid due date.', true); return; }
       if (editorScope !== getScope()) return;
-      writeCustom(editingKey, { title, dueDate, summary: $('card-summary').value.trim() });
+      writeCustom(editingKey, { title, dueDate, summary: $('card-summary').value.trim(), subject: model.normalizeSubject($('card-subject').value) });
     });
     async function move(key, status, beforeKey = null, focusControl = 'move') {
       if (busy) return;
@@ -292,7 +306,7 @@
         const card = [...shadow.querySelectorAll('.card')].find(node => node.dataset.key === key);
         const control = card?.querySelector(`[data-control="${focusControl}"]`);
         if (showArchived) focusArchive();
-        else (control?.disabled ? card?.querySelector('select') : control)?.focus();
+        else (control?.disabled ? card?.querySelector('select') : control || (showWork ? $('work') : selectedSubject !== null ? $('subject-filter') : null))?.focus();
       }
     }
     function render() {
@@ -302,41 +316,59 @@
       const focusControl = focused?.dataset.control;
       const columns = $('columns'); const scroll = columns.scrollLeft;
       columns.replaceChildren();
-      const visible = items.filter(item => !item.expired && Boolean(item.archived) === showArchived);
+      if (filterScope !== getScope()) { filterScope = getScope(); selectedSubject = null; }
+      const available = items.filter(item => !item.expired && Boolean(item.archived) === showArchived && (!showWork || !['done', 'ignore'].includes(item.status)));
+      const facets = model.subjectFacets(available);
+      if (selectedSubject !== null && !facets.some(facet => facet.key === selectedSubject)) facets.push({ key: selectedSubject, label: selectedSubject || 'No subject', count: 0 });
+      const options = [{ key: null, label: 'All subjects', count: available.length }, ...facets].map(facet => {
+        const option = document.createElement('option'); option.value = JSON.stringify(facet.key); option.textContent = `${facet.label} (${facet.count})`; return option;
+      });
+      $('subject-filter').replaceChildren(...options); $('subject-filter').value = JSON.stringify(selectedSubject); $('subject-filter').disabled = busy;
+      $('subject-options').replaceChildren(...model.subjectFacets(items).filter(facet => facet.key).map(facet => {
+        const option = document.createElement('option'); option.value = facet.label; return option;
+      }));
+      const visible = available.filter(item => selectedSubject === null || model.subjectKey(item.subject) === selectedSubject);
       columns.classList.toggle('archived', showArchived);
+      columns.classList.toggle('work', showWork);
+      $('work').setAttribute('aria-pressed', String(showWork)); $('work').disabled = busy;
+      shadow.querySelector('h2').textContent = showWork ? 'What should I work on?' : 'Assignment Kanban';
       const archiveLabel = showArchived ? 'Back to active cards' : `Show archived (${items.filter(item => item.archived && !item.expired).length})`;
       $('archive').innerHTML = toolbarIcon(showArchived ? 'board' : 'archive');
       $('archive').title = archiveLabel; $('archive').setAttribute('aria-label', archiveLabel);
       $('archive').setAttribute('aria-pressed', String(showArchived)); $('archive').disabled = busy;
       $('add').hidden = showArchived;
       $('context').textContent = showArchived ? `${getScope() || 'Default profile'} · ${visible.length} archived custom cards` : `${getScope() || 'Default profile'} · ${visible.filter(item => !item.custom).length} unique assignments in loaded range · ${visible.filter(item => item.custom).length} custom cards across all dates`;
+      if (showWork) $('context').textContent += ' · Active only, earliest due first; Done and In class excluded.';
+      if (selectedSubject !== null) $('context').textContent += ' · Subject filter applied.';
       $('add').disabled = busy;
       $('editor').querySelectorAll('input, textarea, button').forEach(control => { control.disabled = busy; });
       $('empty').hidden = visible.length !== 0;
-      $('empty').textContent = showArchived ? 'No archived custom cards.' : 'No cards to show. Add a custom card to get started.';
-      for (const status of showArchived ? ['done'] : model.columns) {
-        const columnItems = visible.filter(item => item.status === status);
+      $('empty').textContent = showArchived ? 'No archived custom cards.' : showWork ? 'No active work in the loaded range or custom cards.' : 'No cards to show. Add a custom card to get started.';
+      if (selectedSubject !== null) $('empty').textContent = 'No cards match this subject in this view. Choose All subjects to clear the filter.';
+      const groups = showWork ? model.workGroups(visible, dates.today()) : (showArchived ? ['done'] : model.columns).map(status => ({ status, label: showArchived ? 'Archived' : labels[status], items: visible.filter(item => showArchived || item.status === status) }));
+      for (const group of groups) {
+        const { status, items: columnItems } = group;
         const column = document.createElement('div'); column.className = 'column'; column.dataset.status = status;
         column.style.setProperty('--accent', status ? statuses[status][1] : '#9bc7ff');
-        const heading = document.createElement('h3'); heading.textContent = `${showArchived ? 'Archived' : labels[status]} (${columnItems.length})`; column.append(heading);
+        const heading = document.createElement('h3'); heading.textContent = `${group.label} (${columnItems.length})`; column.append(heading);
         column.addEventListener('dragover', event => {
-          if (!dragged || busy) return;
+          if (!dragged || busy || showWork) return;
           event.preventDefault(); event.dataTransfer.dropEffect = 'move'; clearDrop();
           const card = event.target.closest('.card');
           if (card && card.dataset.key !== dragged) card.classList.add('drop-before');
           else if (!card) column.classList.add('drop-end');
         });
         column.addEventListener('drop', event => {
-          if (!dragged || busy) return;
+          if (!dragged || busy || showWork) return;
           event.preventDefault(); clearDrop();
           const before = event.target.closest('.card')?.dataset.key || null;
           if (before !== dragged) move(dragged, status, before);
         });
         columnItems.forEach((item, index) => {
-          const card = document.createElement('article'); card.className = 'card'; card.dataset.key = item.key; card.draggable = !busy && !showArchived;
+          const card = document.createElement('article'); card.className = 'card'; card.dataset.key = item.key; card.draggable = !busy && !showArchived && !showWork;
           const cardHeader = document.createElement('div'); cardHeader.className = 'card-header'; card.append(cardHeader);
           const handle = document.createElement('span'); handle.className = 'drag-handle'; handle.textContent = '⠿'; handle.title = item.custom ? 'Custom card · Drag to move' : 'Drag to move'; handle.setAttribute('aria-hidden', 'true'); handle.draggable = !busy; cardHeader.append(handle);
-          handle.hidden = showArchived;
+          handle.hidden = showArchived || showWork;
           if (dates.isDueSoon(item.dueDate)) {
             card.append(dates.createFlag('due-flag'));
           }
@@ -344,6 +376,8 @@
           const title = document.createElement(url ? 'a' : 'span'); title.className = 'title'; title.textContent = item.title;
           if (url) { title.href = url; title.target = '_blank'; title.rel = 'noopener'; title.title = 'Open assignment in a new tab'; title.draggable = false; }
           card.append(title);
+          const subject = document.createElement('small'); subject.className = 'subject'; subject.textContent = `${item.custom ? 'Custom card · ' : ''}${item.subject || 'No subject'}`; card.append(subject);
+          if (item.subject) { card.classList.add('has-subject'); card.style.setProperty('--subject-hue', model.subjectHue(item.subject)); }
           if (item.custom) {
             card.classList.add('custom'); card.setAttribute('aria-label', `Custom card: ${item.title}`);
             const actions = document.createElement('div'); actions.className = 'card-actions';
@@ -381,9 +415,10 @@
           const select = document.createElement('select'); select.dataset.control = 'move'; select.disabled = busy;
           select.setAttribute('aria-label', `Move ${item.title} to`);
           for (const value of model.columns) { const option = document.createElement('option'); option.value = value; option.textContent = labels[value]; select.append(option); }
-          select.value = status; select.addEventListener('change', () => move(item.key, select.value));
+          select.value = item.status; select.addEventListener('change', () => move(item.key, select.value));
           const selectWrap = document.createElement('span'); selectWrap.className = 'select-wrap'; selectWrap.append(select);
           label.append(selectWrap); card.append(label);
+          if (showWork) { column.append(card); return; }
           const ordering = document.createElement('div'); ordering.className = 'ordering';
           for (const direction of ['up', 'down']) {
             const button = document.createElement('button'); button.type = 'button'; button.textContent = direction === 'up' ? '↑' : '↓'; button.title = `Move ${direction}`; button.dataset.control = direction;
@@ -403,11 +438,13 @@
         columns.append(column);
       }
       columns.scrollLeft = scroll;
-      if (focusKey && focusControl) [...shadow.querySelectorAll('.card')].find(node => node.dataset.key === focusKey)?.querySelector(`[data-control="${focusControl}"]`)?.focus();
+      if (focusKey && focusControl) ([...shadow.querySelectorAll('.card')].find(node => node.dataset.key === focusKey)?.querySelector(`[data-control="${focusControl}"]`) || (showWork ? $('work') : selectedSubject !== null ? $('subject-filter') : null))?.focus();
     }
     $('back').addEventListener('click', () => setOpen(false));
     $('help-button').addEventListener('click', () => $('help').showModal());
-    $('archive').addEventListener('click', () => { showArchived = !showArchived; closeEditor(); items = collect(); render(); });
+    $('archive').addEventListener('click', () => { showArchived = !showArchived; showWork = false; closeEditor(); items = collect(); render(); });
+    $('work').addEventListener('click', () => { showWork = !showWork; showArchived = false; closeEditor(); dragged = null; items = collect(); render(); announce(showWork ? 'Active work grouped by deadline.' : 'Kanban columns shown.'); });
+    $('subject-filter').addEventListener('change', () => { selectedSubject = JSON.parse($('subject-filter').value); dragged = null; render(); announce(`${shadow.querySelectorAll('.card').length} cards shown for the selected subject.`); });
     function refreshDay() { if (open) { items = collect(); render(); } }
     document.addEventListener('visibilitychange', refreshDay);
     window.addEventListener('focus', refreshDay);
@@ -427,7 +464,7 @@
         events = nextEvents;
         items = collect();
         mount();
-        const next = JSON.stringify([getScope(), dates.today(), items.map(item => [item.key, item.title, item.status, item.dueDate, item.summary, item.archived, item.expired, item.deleteAt, model.assignmentURL(item.events, location.href)])]);
+        const next = JSON.stringify([getScope(), dates.today(), items.map(item => [item.key, item.title, item.status, item.dueDate, item.summary, item.subject, item.archived, item.expired, item.deleteAt, model.assignmentURL(item.events, location.href)])]);
         if (signature !== next) { signature = next; dragged = null; render(); }
       }
     };

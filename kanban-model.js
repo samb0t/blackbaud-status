@@ -7,22 +7,22 @@
   const dataKey = key => 'bbs-card:' + key;
   const day = 86400000;
   function retention(value, status, now = Date.now()) {
-    const completedAt = status === 'done' && Number.isFinite(value.completedAt) ? value.completedAt : null;
+    const completedAt = ['done', 'ignore'].includes(status) && Number.isFinite(value.completedAt) ? value.completedAt : null;
     const archiveAt = completedAt === null ? null : completedAt + 14 * day;
     const deleteAt = archiveAt === null ? null : archiveAt + 90 * day;
     return { archiveAt, deleteAt, archived: archiveAt !== null && now >= archiveAt, expired: deleteAt !== null && now >= deleteAt };
   }
   function customMove(value, previousStatus, status, now = Date.now()) {
     const { completedAt, ...details } = value;
-    return status === 'done' ? { ...details, completedAt: previousStatus === 'done' && Number.isFinite(completedAt) ? completedAt : now } : details;
+    return ['done', 'ignore'].includes(status) ? { ...details, completedAt: previousStatus === status && Number.isFinite(completedAt) ? completedAt : now } : details;
   }
   function cleanup(records, now = Date.now()) {
     const values = {}, remove = [];
     for (const [data, value] of Object.entries(records)) {
       if (!data.startsWith('bbs-card:bbs-custom:') || !value || typeof value.title !== 'string') continue;
       const key = data.slice('bbs-card:'.length);
-      if (records[key] !== 'done') continue;
-      if (!Number.isFinite(value.completedAt)) values[data] = customMove(value, 'done', 'done', now);
+      if (!['done', 'ignore'].includes(records[key])) continue;
+      if (!Number.isFinite(value.completedAt)) values[data] = customMove(value, records[key], records[key], now);
       else if (retention(value, records[key], now).expired) remove.push(data, key, orderKey(key));
     }
     return { values, remove };

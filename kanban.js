@@ -15,7 +15,7 @@
     for (const event of events) {
       const sources = [event, ...event.querySelectorAll('[data-summary], [data-description], .fc-event-summary, .fc-event-description, .event-summary, .event-description, .summary, .description')];
       for (const source of sources) {
-        const values = [source.getAttribute('data-summary'), source.getAttribute('data-description'), source !== event ? source.textContent : ''];
+        const values = [source.getAttribute('data-bbs-summary'), source.getAttribute('data-summary'), source.getAttribute('data-description'), source !== event ? source.textContent : ''];
         for (const value of values) {
           if (!value) continue;
           // Calendar descriptions may contain HTML. Keep only inert, plain text.
@@ -81,8 +81,8 @@
         <h2 id="help-heading">Kanban help</h2>
         <p><strong>Organize cards:</strong> Drag the grab handle between columns or above another card to reorder. Use Move to and the ↑/↓ buttons with a keyboard or touch.</p>
         <p><strong>Custom cards:</strong> Use the + button to add a title, due date, and optional summary. A purple border identifies custom cards. The pencil edits a card; the trash can permanently deletes it after confirmation. Cards sync for the current school and profile and remain across calendar ranges.</p>
-        <p><strong>Archive:</strong> Custom cards archive after 14 days in Done and are permanently deleted after 90 more days. The archive-box button shows archived cards and their deletion dates. Restore to To do cancels the timer; completing the card again starts a new one. Editing or reordering does not reset the timer. The board icon returns to active cards.</p>
-        <p><strong>Assignments:</strong> Only assignments in the loaded calendar range appear. Linked titles open assignments in a new tab. Open an assignment’s calendar popup to capture an unavailable summary.</p>
+        <p><strong>Archive:</strong> Custom cards archive after 14 days in Done or In class and are permanently deleted after 90 more days. The archive-box button shows archived cards and their deletion dates. Moving to another column resets the timer; restoring to To do cancels it. Editing or reordering does not reset the timer. The board icon returns to active cards.</p>
+        <p><strong>Assignments:</strong> Only assignments in the loaded calendar range appear. Linked titles open assignments in a new tab. Summaries are read directly from the calendar’s loaded event data without opening popups. If a summary remains unavailable, open its calendar popup manually.</p>
         <p><strong>Due-date flags:</strong> Red flags mark cards due today through the next two school days (Monday–Friday). Past and unknown dates are not flagged.</p>
         <p><strong>Calendar:</strong> Use the calendar icon to return and choose another range. Escape closes an open editor or returns to the calendar.</p>
         <form method="dialog"><button type="submit" autofocus>Close help</button></form>
@@ -108,7 +108,6 @@
       let changed = false;
       for (const popup of popups) {
         const description = popup.querySelector('.simple-topoffset');
-        if (!description) continue;
         const popupId = popup.closest('.popover').id;
         const headline = normalize(popup.querySelector('.bb-headline')?.textContent);
         const student = normalize(popup.querySelector('.bb-emphasized')?.textContent);
@@ -120,8 +119,11 @@
           (url && model.assignmentURL(item.events, location.href) === url));
         if (!matches.length && headline) matches = cards.filter(item => normalize(item.title) === (student ? `${headline} (${student})` : headline));
         if (matches.length === 1) {
-          const key = matches[0].key, text = truncate(normalize(description.textContent));
-          if (text && summaries.get(key) !== text) { summaries.set(key, text); changed = true; }
+          const key = matches[0].key, text = truncate(normalize(description?.textContent));
+          // A populated Blackbaud result may legitimately omit the description.
+          // Don't confuse an empty/loading popup with a finished empty result.
+          const loaded = description || popup.querySelector('.results .bb-headline');
+          if (loaded && summaries.get(key) !== text) { summaries.set(key, text); changed = true; }
         }
       }
       return changed;
@@ -129,7 +131,7 @@
     function collect() {
       const cards = model.cards(events, identify, getRecords(), dates.dueDate, model.customCards(getRecords(), location.origin, getScope()));
       capturePopups(document.querySelectorAll('.popover .popover-content'), cards.filter(item => !item.custom));
-      return cards.map(item => item.custom ? item : ({ ...item, summary: summaries.get(item.key) ?? summary(item.events) }));
+      return cards.map(item => item.custom ? item : ({ ...item, summary: item.events.some(event => event.hasAttribute('data-bbs-summary')) ? summary(item.events) : (summaries.get(item.key) ?? summary(item.events)) }));
     }
     // Capture independently of the calendar's debounced refresh. Include removed
     // popups: Bootstrap may remove them before that refresh ever gets to run.

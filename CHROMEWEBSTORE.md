@@ -1,6 +1,6 @@
 # Chrome Web Store Listing — My School Assignment Statuses
 
-> Last Updated: 2026-10-04
+> Last Updated: 2026-10-17
 > Draft reference for a potential store release. Current installation uses Load unpacked.
 
 ## Store Listing
@@ -15,7 +15,7 @@ Organize assignments on your school's myschoolapp.com calendar with personal sta
 
 Mark assignments In progress, Done, or In class. See red flags for deadlines due today through the next two school days. Switch to a dark calendar appearance, organize loaded assignments into columns, and add custom cards with titles, due dates, and notes.
 
-Use drag and drop or keyboard-friendly controls to organize cards. Personal calendar statuses include accessible descriptions, and the status panel scrolls to keep controls within reach in short windows. Completed custom cards archive after 14 days and are permanently deleted 90 days later.
+Use drag and drop or keyboard-friendly controls to organize cards. Personal calendar statuses include accessible descriptions, and the status panel scrolls to keep controls within reach in short windows. Custom cards in Done or In class archive after 14 days and are permanently deleted 90 days later. Available summaries load automatically as you browse visible calendar assignments.
 
 Open your school calendar in Grid view, select a student/profile label, and use My statuses or the Kanban button to get started. Select the Assignments calendar to avoid including unrelated events.
 
@@ -41,11 +41,11 @@ Screenshot notes: show the status panel and Kanban board with sample data, inclu
 | Permission / site access | Type | Justification |
 |--------------------------|------|---------------|
 | `storage` | permission | Save personal statuses, card ordering, custom cards, and theme preferences across devices; keep the selected profile local to each device. |
-| `https://*.myschoolapp.com/*` | content-script matches | Read rendered calendar items and add personal status indicators, calendar styling, and the assignment board on school sites. |
+| `https://*.myschoolapp.com/*` | content-script matches | Read rendered calendar items and their already-loaded descriptions, and add personal status indicators, calendar styling, and the assignment board on school sites. |
 
 ## Privacy & Data Use
 
-The extension processes rendered assignment titles, IDs, dates, links, and descriptions. School origins, profile labels, assignment IDs or fallback titles, statuses, ordering, custom card titles/dates/summaries, and the theme preference are stored through Chrome Sync and may be transmitted by Chrome when syncing is enabled. The selected profile is stored locally. Calendar popup descriptions are retained only for the page session.
+The extension processes rendered assignment titles, IDs, dates, links, and descriptions already loaded by the calendar. School origins, profile labels, assignment IDs or fallback titles, statuses, ordering, custom card titles/dates/summaries, and the theme preference are stored through Chrome Sync and may be transmitted by Chrome when syncing is enabled. The selected profile is stored locally. Calendar descriptions are retained only for the page session. Reading these descriptions does not trigger additional school-site requests or open assignment popups.
 
 There is no developer-operated collection endpoint or analytics. Data is used for assignment organization, not sold, used for unrelated purposes, or used for creditworthiness. User-entered labels and notes may contain personal information. Dashboard disclosures must account for this stored website content and user-provided information, including transmission through Chrome Sync.
 
@@ -61,8 +61,9 @@ Store visibility, regions, publisher name, contact email, and support URL: not c
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
+| Unreleased (based on 0.3.0) | 2026-10-17 | In class custom-card archiving and automatic summaries from already-loaded calendar data, without popup flicker. | Draft |
 | Unreleased (based on 0.3.0) | 2026-10-04 | Archive focus recovery, viewport-safe status panel, accessible calendar status descriptions, and filtered/batched calendar updates. | Draft |
 
 ## Review Notes
 
-Fixture-based automated checks do not validate a signed-in Blackbaud page. Title fallback can merge different assignments with identical titles in one profile. Chrome Sync quotas apply. The manifest's public key stabilizes the unpacked extension identity; a store release may use a different identity.
+Direct summary extraction was checked on a signed-in Blackbaud FullCalendar 6.1.11 grid; other features and calendar variants also use fixture-based checks. Title fallback can merge different assignments with identical titles in one profile. Chrome Sync quotas apply. The manifest's public key stabilizes the unpacked extension identity; a store release may use a different identity.

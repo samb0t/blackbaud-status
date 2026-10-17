@@ -39,7 +39,7 @@ Click **Add custom card**, enter a **title** and **due date**, add an optional *
 
 Custom cards have a subtle **purple border**. Use the **pencil** icon beside the grab handle to edit details while preserving the card's column and position, or the **trash-can** icon to delete it after confirmation. Both icons have tooltips and accessible labels. **Cancel** or Escape dismisses the editor. Custom cards are saved in Chrome Sync for the current school and student/profile and remain on the board across calendar ranges and reloads. Cards with identical titles are independent. They appear only on the board and do not create school calendar events.
 
-Custom cards automatically **archive after 14 days in Done**, measured from when they entered that column. **Show archived** opens the current profile's archive, where each card shows its permanent deletion date and offers **Restore to To do** and the trash-can icon. Archived cards are **permanently deleted after 90 additional days**. Moving a card out of Done cancels its timer; completing it again starts a new timer. Editing or reordering a completed card does not reset the timer. Existing Done custom cards without a completion timestamp start their timer when this update first loads.
+Custom cards automatically **archive after 14 days in Done or In class**, measured from when they entered that column. **Show archived** opens the current profile's archive, where each card shows its permanent deletion date and offers **Restore to To do** and the trash-can icon. Archived cards are **permanently deleted after 90 additional days**. Moving to another column resets the timer; moving to To do or In progress cancels it. Editing or reordering does not reset the timer. Existing Done or In class custom cards without a timestamp start their timer when this update first loads.
 
 Retention uses elapsed days, not school days or due dates. Cleanup runs when a calendar page loads, gains focus, and periodically while it is open; expired data may remain in storage until the next visit. Deletion removes the card's details, status, and ordering. The policy bounds retention time, though Chrome Sync's storage limits still apply if many cards are created within that time.
 
@@ -49,7 +49,7 @@ Moving a card updates the same synced status that colors its calendar entries; *
 
 Click an assignment's linked title to open it in a new tab. When the calendar supplies no usable web link, open the assignment from the calendar.
 
-Cards show available assignment descriptions, limited to 200 characters with `...` for longer text. Descriptions in Blackbaud's calendar popups are captured when those popups appear and retained for the current page session after they close. Open an assignment's calendar popup first if its description is not already available. Only the description paragraph is shown, without the popup's course, dates, or navigation links.
+Cards show available assignment descriptions, limited to 200 characters with `...` for longer text. Descriptions are read directly from FullCalendar's already-loaded event data, without automatic clicks, popup flicker, or additional network requests. The page-context adapter in `calendar-data.js` shares only each event's `LongDescription` through a DOM attribute; the board converts it to inert plain text. This also works while marking or viewing Kanban, and refreshes when calendar events are rendered. Manual calendar popups remain a fallback for unsupported calendar markup; captured descriptions stay available for the page session. Some assignments genuinely have no description.
 
 Every card includes a **due-date line**. Explicit due-date metadata takes priority; otherwise, the extension reads the assignment's calendar day or the actual ending segment of a multi-day event from supported FullCalendar markup. Grid segments must carry FullCalendar's ending marker before their placement can establish a deadline; the edge of a clipped week is not a due date. Repeated segments are combined, using the latest applicable date. If a date cannot be determined reliably (including a multi-day event continuing beyond the loaded range), the card shows **Due date unavailable**. Switching to a range that includes the actual ending segment can make its date available.
 
@@ -59,7 +59,7 @@ Kanban is available only in recognized calendar grid views. Both the toolbar ico
 
 ## Compatibility and identity
 
-This implementation targets FullCalendar's older `.fc-event` markup and newer month/list event classes, based on common FullCalendar markup. It has **not been validated against a logged-in Blackbaud page**. The panel is shown when a supported calendar container or calendar items exist. It permits marking any supported calendar event, so select the Assignments calendar in Blackbaud when marking homework.
+This implementation targets FullCalendar's older `.fc-event` markup and newer month/list event classes. Direct summary extraction has been checked on a logged-in Blackbaud FullCalendar 6.1.11 grid: descriptions were present in JavaScript event data before any click, but not in event HTML. Other calendar versions and views may differ. The panel is shown when a supported calendar container or calendar items exist. It permits marking any supported calendar event, so select the Assignments calendar in Blackbaud when marking homework.
 
 Assignment/event data attributes or explicit assignment/event IDs in links are used when available. Otherwise, the exact normalized visible title and your chosen profile identify the item. The chooser explicitly warns when title matching is used. Identical titles in the same school/profile share a status across all dates; this handles repeated segments of long assignments but can conflate separate assignments named alike. A live DOM sample is needed to improve identification if Blackbaud stores IDs only in its internal JavaScript state. No private APIs are called.
 
@@ -107,6 +107,25 @@ Open `theme-preview.html#calendar` for a screenshot-based reproduction of the sc
 Run `node theme.browser.cjs` to check navigation contrast (at least 4.5:1), preserved bar backgrounds, active/hover/focus states, dropdowns, route changes, and theme toggling at desktop and narrower widths. To save screenshots for visual inspection, pass an existing output directory: `node theme.browser.cjs /absolute/path/to/screenshots`. Review those images as well as the assertions; a passing fixture cannot confirm the live site's markup matches it.
 
 Built using Chrome's content script and storage model: https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts
+
+## Future enhancements
+
+Backlog for future sessions, in recommended implementation order:
+
+- [ ] **Stable assignment identity:** Use assignment IDs from FullCalendar's event data rather than title fallback where available. Plan migration of existing statuses and ordering so saved work is preserved, and verify IDs remain stable across calendar ranges and student profiles.
+- [ ] **Reliable due dates and assignment links:** Read explicit due dates and detail links from event data. Prefer these over inferred calendar placement, especially for multi-day assignments, while retaining fallbacks for unsupported calendar versions.
+- [ ] **“What should I work on?” view:** Group active assignments into overdue, due today, and upcoming, excluding Done and In class. Build this on the improved identity and date handling above.
+- [ ] **Search and filters:** Filter cards by subject, student, deadline, or status, including a quick “Hide completed” option.
+- [ ] **Personal notes and checklists:** Attach personal reminders and subtasks to school assignments without changing the school's description. Define storage and retention behavior before implementing.
+- [ ] **Progress overview:** Show a compact weekly completion indicator, such as “5 of 8 assignments finished,” counting In class separately. Define the reporting range and make clear when totals cover only loaded calendar items.
+
+### Technical starting point
+
+The live Blackbaud FullCalendar 6.1.11 grid exposes event data through `element.fcSeg.eventRange.def.extendedProps`. Observed fields include `AssignmentId`, `AssignmentIndexId`, `EventId`, `UserId`, `GroupId`, `GroupName`, `DateDue`, `DetailLink`, and `LongDescription`. Verify field semantics and stability before using them as identifiers or deadlines.
+
+`calendar-data.js` already runs in the page's MAIN world and publishes `LongDescription` through `data-bbs-summary` for the isolated content scripts. Extend this adapter for additional fields rather than simulating event clicks. Descriptions were confirmed present before clicks: 27 populated descriptions and 7 empty descriptions across 34 loaded assignments. Automatic popup clicking was replaced because it caused flicker and could stall on empty descriptions.
+
+Relevant files: `identity.js` (identity), `calendar-dates.js` (deadlines), `calendar-data.js` (page-data adapter), `kanban-model.js` (board model), `kanban.js` (board UI), and `content.js` (storage and calendar integration). Existing unit and browser checks are documented under Validation above.
 
 ## Fixed extension identity
 

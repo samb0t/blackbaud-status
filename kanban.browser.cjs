@@ -7,7 +7,7 @@ const { join } = require('node:path');
 
 (async () => {
   let seed = {};
-  const files = new Set(['demo.html', 'demo.js', 'identity.js', 'calendar-dates.js', 'kanban-model.js', 'kanban.js', 'content.js', 'content.css']);
+  const files = new Set(['demo.html', 'demo.js', 'calendar-data.js', 'identity.js', 'calendar-dates.js', 'kanban-model.js', 'kanban.js', 'content.js', 'content.css']);
   const server = createServer(async (request, response) => {
     const file = request.url.slice(1);
     if (!files.has(file)) { response.writeHead(404).end(); return; }
@@ -371,6 +371,44 @@ const { join } = require('node:path');
     });
     await page.waitForTimeout(250);
     assert.equal(await page.evaluate(() => identityCalls), 0);
+    // Read page-owned FullCalendar data without clicking or opening popups.
+    seed = {};
+    await page.reload();
+    await page.evaluate(() => {
+      window.summaryClicks = 0;
+      const grid = document.querySelector('.fc-view-container');
+      grid.innerHTML = '<div class="fc-month-view"><a class="fc-event" href="/must-not-navigate" data-assignment-id="auto-a">Auto A</a><a class="fc-event" data-assignment-id="auto-a">Auto A</a><a class="fc-event" data-assignment-id="auto-b">Auto B</a><a class="fc-event" data-assignment-id="known" data-summary="Already available">Known</a><a class="fc-event" style="display:none" data-assignment-id="hidden">Hidden</a></div>';
+      grid.firstElementChild.insertAdjacentHTML('afterbegin', '<a class="fc-event" data-assignment-id="empty">A empty description</a>');
+      grid.addEventListener('click', () => summaryClicks++);
+      for (const item of grid.querySelectorAll('.fc-event:not([data-summary])')) {
+        item.fcSeg = { eventRange: { def: { extendedProps: { LongDescription: item.dataset.assignmentId === 'empty' ? '' : '<p>Loaded <b>' + item.textContent + '</b></p><script>window.summaryExecuted=true</script>' } } } };
+      }
+    });
+    await page.waitForFunction(() => document.querySelectorAll('[data-bbs-summary]').length === 5);
+    const cdp = await page.context().newCDPSession(page);
+    const { frameTree } = await cdp.send('Page.getFrameTree');
+    const { executionContextId } = await cdp.send('Page.createIsolatedWorld', { frameId: frameTree.frame.id, worldName: 'summary-test' });
+    const isolated = await cdp.send('Runtime.evaluate', { contextId: executionContextId, expression: `JSON.stringify({ privateData: typeof document.querySelector('.fc-event').fcSeg, sharedData: document.querySelector('[data-assignment-id="auto-a"]').getAttribute('data-bbs-summary') })` });
+    const bridge = JSON.parse(isolated.result.value);
+    assert.equal(bridge.privateData, 'undefined');
+    assert.match(bridge.sharedData, /Loaded/);
+    await cdp.detach();
+    await page.locator('.bbs-kanban-tab').click();
+    assert.equal(await board.getByText('Loaded Auto A', { exact: true }).count(), 1);
+    assert.equal(await board.getByText('Loaded Auto B', { exact: true }).count(), 1);
+    assert.equal(await page.evaluate(() => summaryClicks), 0);
+    assert.equal(await page.evaluate(() => window.summaryExecuted), undefined);
+    assert.equal(await page.locator('.popover').count(), 0);
+    assert.ok(page.url().includes('demo.html'));
+    // Range replacement publishes fresh data, including an explicitly empty description.
+    await page.evaluate(() => {
+      const item = document.querySelector('[data-assignment-id="auto-b"]');
+      const replacement = item.cloneNode(true);
+      replacement.fcSeg = { eventRange: { def: { extendedProps: { LongDescription: '' } } } };
+      item.replaceWith(replacement);
+    });
+    await board.getByText('Loaded Auto B', { exact: true }).waitFor({ state: 'detached' });
+    assert.equal(await page.evaluate(() => summaryClicks), 0);
     assert.deepEqual(errors, []);
     console.log('Kanban browser checks passed: toolbar icon, due dates/flags, date rollover, view switching, deduplication, drag/drop, menus, ordering, reload, sync, failures, profiles, dark mode, range updates, and custom card create/edit/delete/persistence.');
   } finally {

@@ -32,6 +32,20 @@ test('cleanup initializes legacy Done cards and removes only expired custom card
   assert.equal(records[dataKey(legacy)].completedAt, undefined);
 });
 
+test('In class retention preserves reorder time, resets on column changes, and cleans up legacy cards', () => {
+  const now = Date.UTC(2026, 9, 17), day = 86400000;
+  const value = customMove({ title: 'Class task' }, '', 'ignore', now);
+  assert.equal(retention(value, 'ignore', now + 14 * day - 1).archived, false);
+  assert.equal(retention(value, 'ignore', now + 14 * day).archived, true);
+  assert.equal(customMove(value, 'ignore', 'ignore', now + day).completedAt, now);
+  assert.equal(customMove(value, 'ignore', 'done', now + day).completedAt, now + day);
+  assert.equal(customMove(value, 'ignore', 'progress', now + day).completedAt, undefined);
+  const key = customPrefix(origin, 'Student A') + 'class', legacy = key + '-legacy';
+  const records = { [key]: 'ignore', [dataKey(key)]: value, [legacy]: 'ignore', [dataKey(legacy)]: { title: 'Legacy' } };
+  assert.deepEqual(cleanup(records, now + 104 * day).remove, [dataKey(key), key, orderKey(key)]);
+  assert.equal(cleanup(records, now).values[dataKey(legacy)].completedAt, now);
+});
+
 test('custom cards isolate school/profile data and keep identical titles distinct', () => {
   const a = customPrefix(origin, 'Student A') + 'one', b = customPrefix(origin, 'Student A') + 'two';
   const value = { title: 'Alpha', dueDate: '2026-10-06', summary: 'Personal task' };

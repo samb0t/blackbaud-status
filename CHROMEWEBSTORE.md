@@ -40,6 +40,8 @@ Screenshot notes: show the status panel and Kanban board with sample data, inclu
 
 Refresh screenshots to include the Group by deadline label, Subject filter with counts, subject borders/labels in both themes, and the custom-card Subject field.
 
+The subject picklist now sits left-most in the top-right toolbar, followed by the deadline clock icon with hover text. Capture this compact toolbar layout. Custom cards without a subject appear under “custom.”
+
 ## Permissions Justification
 
 | Permission / site access | Type | Justification |
@@ -67,6 +69,7 @@ Store visibility, regions, publisher name, contact email, and support URL: not c
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
+| Unreleased (based on 0.3.0) | 2026-10-17 | Compact top-right subject/deadline controls and a “custom” fallback subject for custom cards. | Draft |
 | Unreleased (based on 0.3.0) | 2026-10-17 | Group by deadline toggle label, subject-colored card borders and labels, counted subject filters, and optional synced subjects on custom cards. | Draft |
 | Unreleased (based on 0.3.0) | 2026-10-17 | Event-data assignment identities with student isolation (no migration), explicit deadlines/detail links, and an active-work view grouped by deadline. | Draft |
 | Unreleased (based on 0.3.0) | 2026-10-17 | In class custom-card archiving and automatic summaries from already-loaded calendar data, without popup flicker. | Draft |

@@ -4,6 +4,7 @@
   const model = SchoolStatusKanbanModel;
   const dates = SchoolStatusCalendarDates;
   const toolbarIcon = name => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${{
+    deadline: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     archive: '<path d="M3 3h18v4H3z M5 7v14h14V7 M9 11h6"/>',
     add: '<path d="M12 5v14 M5 12h14"/>',
     calendar: '<path d="M4 5h16v16H4z M8 3v4 M16 3v4 M4 10h16"/>',
@@ -59,9 +60,10 @@
       .card.has-subject { border: 2px solid hsl(var(--subject-hue) 55% 40%); }
       :host([data-dark]) .card.has-subject { border-color: hsl(var(--subject-hue) 60% 65%); }
       .subject { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-      .filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
-      .filters label { margin: 0; min-width: min(100%, 220px); max-width: 100%; }
-      .filters select { max-width: 100%; } #work[aria-pressed=true] { border-color: var(--focus); background: var(--column); }
+      header .actions { align-items: center; flex-wrap: wrap; justify-content: flex-end; margin: 0 0 0 auto; max-width: 100%; }
+      #subject-filter { margin: 0; width: 100%; min-width: 0; min-height: 36px; }
+      header .select-wrap { width: 280px; max-width: 100%; }
+      #work[aria-pressed=true] { border-color: var(--focus); background: var(--column); }
       .card-header { display: flex; align-items: center; gap: 4px; min-height: 32px; padding-right: 24px; margin-bottom: 4px; }
       .drag-handle { display: block; width: 28px; font-size: 20px; line-height: 24px; color: var(--muted); cursor: grab; user-select: none; }
       .card-actions { display: flex; gap: 4px; margin-left: auto; }
@@ -83,7 +85,7 @@
       .ordering { display: flex; gap: 6px; margin-top: 8px; } .ordering button { width: 32px; height: 32px; padding: 0; font-size: 18px; }
       #message { min-height: 1.5em; margin-top: 8px; } #message[data-error] { color: #a62c23; } :host([data-dark]) #message[data-error] { color: #ffaaa2; }
     </style><section aria-label="Assignment Kanban board">
-      <header><h2 tabindex="-1">Assignment Kanban</h2><div class="actions"><button id="add" type="button" aria-label="Add custom card" title="Add custom card">${toolbarIcon('add')}</button><button id="back" type="button" aria-label="Back to calendar" title="Back to calendar">${toolbarIcon('calendar')}</button><button id="archive" type="button" aria-pressed="false" aria-label="Show archived" title="Show archived">${toolbarIcon('archive')}</button><button id="help-button" type="button" aria-label="Kanban help" title="Kanban help" aria-haspopup="dialog" aria-controls="help">?</button></div></header>
+      <header><h2 tabindex="-1">Assignment Kanban</h2><div class="actions"><span class="select-wrap"><select id="subject-filter" aria-label="Subject" title="Filter by subject" aria-controls="columns"><option value="null">All subjects</option></select></span><button id="work" type="button" aria-label="Group by deadline" title="Group by deadline" aria-pressed="false" aria-controls="columns">${toolbarIcon('deadline')}</button><button id="add" type="button" aria-label="Add custom card" title="Add custom card">${toolbarIcon('add')}</button><button id="back" type="button" aria-label="Back to calendar" title="Back to calendar">${toolbarIcon('calendar')}</button><button id="archive" type="button" aria-pressed="false" aria-label="Show archived" title="Show archived">${toolbarIcon('archive')}</button><button id="help-button" type="button" aria-label="Kanban help" title="Kanban help" aria-haspopup="dialog" aria-controls="help">?</button></div></header>
       <dialog id="help" aria-labelledby="help-heading">
         <h2 id="help-heading">Kanban help</h2>
         <p><strong>Organize cards:</strong> Drag the grab handle between columns or above another card to reorder. Use Move to and the ↑/↓ buttons with a keyboard or touch.</p>
@@ -97,8 +99,6 @@
         <form method="dialog"><button type="submit" autofocus>Close help</button></form>
       </dialog>
       <p id="context"></p>
-      <div class="filters"><button id="work" type="button" aria-pressed="false" aria-controls="columns">Group by deadline</button>
-      <label for="subject-filter">Subject<select id="subject-filter" aria-controls="columns"><option value="null">All subjects</option></select></label></div>
       <form id="editor" hidden aria-label="Custom card">
         <h3 id="editor-heading">Add custom card</h3>
         <label for="card-title">Title</label><input id="card-title" required maxlength="200">
@@ -327,7 +327,7 @@
       $('subject-options').replaceChildren(...model.subjectFacets(items).filter(facet => facet.key).map(facet => {
         const option = document.createElement('option'); option.value = facet.label; return option;
       }));
-      const visible = available.filter(item => selectedSubject === null || model.subjectKey(item.subject) === selectedSubject);
+      const visible = available.filter(item => selectedSubject === null || model.subjectKey(model.cardSubject(item)) === selectedSubject);
       columns.classList.toggle('archived', showArchived);
       columns.classList.toggle('work', showWork);
       $('work').setAttribute('aria-pressed', String(showWork)); $('work').disabled = busy;
@@ -376,7 +376,7 @@
           const title = document.createElement(url ? 'a' : 'span'); title.className = 'title'; title.textContent = item.title;
           if (url) { title.href = url; title.target = '_blank'; title.rel = 'noopener'; title.title = 'Open assignment in a new tab'; title.draggable = false; }
           card.append(title);
-          const subject = document.createElement('small'); subject.className = 'subject'; subject.textContent = `${item.custom ? 'Custom card · ' : ''}${item.subject || 'No subject'}`; card.append(subject);
+          const subject = document.createElement('small'); subject.className = 'subject'; subject.textContent = `${item.custom ? 'Custom card · ' : ''}${model.cardSubject(item) || 'No subject'}`; card.append(subject);
           if (item.subject) { card.classList.add('has-subject'); card.style.setProperty('--subject-hue', model.subjectHue(item.subject)); }
           if (item.custom) {
             card.classList.add('custom'); card.setAttribute('aria-label', `Custom card: ${item.title}`);

@@ -57,6 +57,8 @@ This view includes only loaded calendar assignments plus the current profile's a
 
 ### Subjects and filtering
 
+The subject picklist is the left-most control in the board's top-right toolbar. The adjacent **clock icon** toggles **Group by deadline**, with hover text and a pressed state. Custom cards without an explicit subject show **custom** on their cards and in the subject picklist; their editor field stays optional and their border remains purple.
+
 Cards display the school's course/group name (`GroupName`) as their subject, with a matching colored border. Colors are deterministic by subject name and adapt to light/dark mode; text labels identify subjects independently of color. Subject matching ignores capitalization and repeated whitespace. Assignments without subject metadata show **No subject**.
 
 Use the **Subject** selector in Kanban, the deadline view, or the archive. Counts reflect unique cards in the current view before subject filtering; deadline counts exclude Done and In class. **All subjects** clears the filter. A selected subject with no matches remains selected with a zero count. Filtering lasts for the page session and resets when changing student profiles. Status changes and manual ordering still save normally; filtered-out cards retain their data.

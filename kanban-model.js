@@ -3,6 +3,7 @@
   const columns = ['', 'progress', 'done', 'ignore'];
   const normalizeSubject = value => typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, 120) : '';
   const subjectKey = value => normalizeSubject(value).toLowerCase();
+  const cardSubject = item => item.subject || (item.custom ? 'custom' : '');
   function subjectHue(value) {
     let hash = 0;
     for (const character of subjectKey(value)) hash = (Math.imul(hash, 31) + character.codePointAt(0)) >>> 0;
@@ -11,8 +12,8 @@
   function subjectFacets(items) {
     const facets = new Map();
     for (const item of items) {
-      const key = subjectKey(item.subject);
-      if (!facets.has(key)) facets.set(key, { key, label: normalizeSubject(item.subject) || 'No subject', count: 0 });
+      const key = subjectKey(cardSubject(item));
+      if (!facets.has(key)) facets.set(key, { key, label: normalizeSubject(cardSubject(item)) || 'No subject', count: 0 });
       facets.get(key).count++;
     }
     return [...facets.values()].sort((a, b) => a.key === '' ? 1 : b.key === '' ? -1 : a.label.localeCompare(b.label));
@@ -108,6 +109,6 @@
     for (const group of groups) group.items.sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || '') || a.title.localeCompare(b.title) || a.key.localeCompare(b.key));
     return groups;
   }
-  root.SchoolStatusKanbanModel = { columns, normalizeSubject, subjectKey, subjectHue, subjectFacets, orderKey, customPrefix, dataKey, customCards, retention, customMove, cleanup, cards, placement, assignmentURL, workGroups };
+  root.SchoolStatusKanbanModel = { columns, normalizeSubject, subjectKey, cardSubject, subjectHue, subjectFacets, orderKey, customPrefix, dataKey, customCards, retention, customMove, cleanup, cards, placement, assignmentURL, workGroups };
   if (typeof module !== 'undefined') module.exports = root.SchoolStatusKanbanModel;
 })(globalThis);
